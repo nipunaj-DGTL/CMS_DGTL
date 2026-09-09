@@ -1,0 +1,9 @@
+title = "DGTL CMS secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The historical integration-test fixture is not a credential and is required only to keep repository-history scanning fail-closed."
+regexTarget = "secret"
+regexes = ['''integration-test-secret-at-least-32-characters''']

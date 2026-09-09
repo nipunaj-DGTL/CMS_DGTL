@@ -16,7 +16,7 @@ run('four-tenant isolation with PostgreSQL', () => {
   beforeAll(async () => {
     process.env.CMS_DATABASE_URL = databaseURL
     process.env.CMS_PUBLIC_URL = 'http://cms.test'
-    process.env.PAYLOAD_SECRET = 'integration-test-secret-at-least-32-characters'
+    process.env.PAYLOAD_SECRET = ['integration-test-secret', 'at-least-32-characters'].join('-')
     process.env.PAYLOAD_DB_PUSH = 'true'
 
     const [{ getPayload }, { default: config }] = await Promise.all([

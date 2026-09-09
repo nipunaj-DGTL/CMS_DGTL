@@ -282,7 +282,7 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/repo:ro" \
             --workdir /repo \
             "$GITLEAKS_IMAGE" \
-            git --redact --verbose /repo
+            git --config=/repo/.gitleaks.toml --redact --verbose /repo
       - name: Filesystem vulnerability and misconfiguration scan
         run: |
           docker run --rm \
