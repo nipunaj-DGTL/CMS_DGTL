@@ -1,0 +1,296 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # zricethezav/gitleaks v8.30.1, reviewed 2026-09-08.
+  GITLEAKS_IMAGE: docker.io/zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  CMS_ALLOWED_ORIGINS: http://localhost:3101
+  CMS_MEDIA_SCAN_MODE: basic
+  CMS_MEDIA_STORAGE: local
+  CMS_PREVIEW_SECRET: ci-preview-secret-at-least-32-characters
+  CMS_PREVIEW_SIGNING_SECRET: ci-preview-secret-at-least-32-characters
+  CMS_PUBLIC_URL: http://localhost:3000
+  CMS_READ_TOKEN: ci-read-token
+  CMS_REVALIDATION_SECRET: ci-revalidation-secret
+  CMS_REVALIDATION_SECRETS: '{"client-01-main":"ci-revalidation-secret"}'
+  CMS_URL: http://localhost:3000
+  CMS_WEBSITE_KEY: client-01-main
+  CMS_WEBSITE_READ_TOKENS: '{"client-01-main":"ci-read-token"}'
+  NEXT_PUBLIC_SITE_URL: http://localhost:3101
+  PAYLOAD_DB_PUSH: "false"
+  PAYLOAD_SECRET: ci-payload-secret-at-least-32-characters
+  # aquasec/trivy 0.64.1, reviewed 2026-09-08.
+  TRIVY_IMAGE: docker.io/aquasec/trivy@sha256:a8ca29078522f30393bdb34225e4c0994d38f37083be81a42da3a2a7e1488e9e
+
+jobs:
+  quality:
+    name: Quality and contract checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Enforce immutable GitHub Action references
+        run: node .github/scripts/validate-action-pins.mjs
+      - name: Validate release shell and rendered Compose model
+        env:
+          CADDY_IMAGE: docker.io/library/caddy@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CLAMAV_IMAGE: docker.io/clamav/clamav@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CLIENT01_IMAGE: ghcr.io/example/dgtl-client01@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CMS_MIGRATE_IMAGE: ghcr.io/example/dgtl-cms-migrate@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CMS_WEB_IMAGE: ghcr.io/example/dgtl-cms-web@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CMS_WORKER_IMAGE: ghcr.io/example/dgtl-cms-worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          DGTL360_IMAGE: ghcr.io/example/dgtl360@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          POSTGRES_IMAGE: docker.io/library/postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          for example in deploy/secrets/*.env.example; do
+            install -m 600 "$example" "${example%.example}"
+          done
+          bash -n deploy/postgres/init/*.sh deploy/scripts/*.sh
+          bash .github/scripts/test-release-parser.sh
+          docker compose \
+            -f deploy/compose.prod.yml \
+            -f deploy/compose.self-hosted-db.yml \
+            --profile tools --profile edge config --quiet
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify generated Payload artifacts are committed
+        run: |
+          pnpm generate:types
+          pnpm --filter @dgtl/cms generate:importmap
+          git diff --exit-code -- apps/cms/src/payload-types.ts 'apps/cms/src/app/(payload)/admin/importMap.js'
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Build with non-secret configuration-import placeholders
+        env:
+          CMS_MEDIA_ACCESS_KEY_ID: ci-build-placeholder
+          CMS_MEDIA_BUCKET: ci-build-placeholder
+          CMS_MEDIA_ENDPOINT: http://127.0.0.1:9000
+          CMS_MEDIA_FORCE_PATH_STYLE: "true"
+          CMS_MEDIA_REGION: auto
+          CMS_MEDIA_SCAN_MODE: clamav
+          CMS_MEDIA_SECRET_ACCESS_KEY: ci-build-placeholder
+          CMS_MEDIA_STORAGE: s3
+          CMS_EMAIL_FROM_ADDRESS: cms@example.test
+          CMS_EMAIL_FROM_NAME: DGTL CMS CI
+          CMS_EMAIL_PROVIDER: resend
+          CLAMAV_HOST: 127.0.0.1
+          RESEND_API_KEY: ci-build-placeholder
+          SITE_URL: https://dgtl.lk
+        run: pnpm build
+
+  integration:
+    name: PostgreSQL tenant isolation
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 # 16-alpine, 2026-08-16
+        env:
+          POSTGRES_DB: dgtl_cms_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dgtl_cms_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CMS_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dgtl_cms_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dgtl_cms_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dgtl/cms test:int
+
+  migration_boot:
+    name: Migration-only database boot
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 # 16-alpine, 2026-08-16
+        env:
+          POSTGRES_DB: dgtl_cms_migration
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dgtl_cms_migration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CMS_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dgtl_cms_migration
+      CMS_MEDIA_ACCESS_KEY_ID: ci-build-placeholder
+      CMS_MEDIA_BUCKET: ci-build-placeholder
+      CMS_MEDIA_ENDPOINT: http://127.0.0.1:9000
+      CMS_MEDIA_FORCE_PATH_STYLE: "true"
+      CMS_MEDIA_REGION: auto
+      CMS_MEDIA_SCAN_MODE: clamav
+      CMS_MEDIA_SECRET_ACCESS_KEY: ci-build-placeholder
+      CMS_MEDIA_STORAGE: s3
+      CMS_EMAIL_FROM_ADDRESS: cms@example.test
+      CMS_EMAIL_FROM_NAME: DGTL CMS CI
+      CMS_EMAIL_PROVIDER: resend
+      CLAMAV_HOST: 127.0.0.1
+      NODE_ENV: production
+      PAYLOAD_DB_PUSH: "false"
+      RESEND_API_KEY: ci-build-placeholder
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply only committed migrations
+        run: pnpm migrate
+      - run: pnpm --filter @dgtl/cms build
+      - name: Prove the current CMS starts on the migrated schema
+        run: |
+          pnpm --filter @dgtl/cms start >cms-migration-boot.log 2>&1 &
+          cms_pid=$!
+          trap 'kill "$cms_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat cms-migration-boot.log
+          exit 1
+      - name: Upload migration boot log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: migration-boot-log
+          path: cms-migration-boot.log
+          if-no-files-found: ignore
+
+  browser:
+    name: Payload canonical-origin browser tests
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 # 16-alpine, 2026-08-16
+        env:
+          POSTGRES_DB: dgtl_cms_e2e
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dgtl_cms_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: "true"
+      CMS_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dgtl_cms_e2e
+      NODE_ENV: development
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply the committed schema before browser startup
+        run: pnpm migrate
+      - run: pnpm --filter @dgtl/cms playwright:install
+      - run: pnpm --filter @dgtl/cms test:e2e
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: apps/cms/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+
+  security:
+    name: Dependency, source and SBOM checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Review newly introduced dependencies
+        if: github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          allow-ghsas: GHSA-67mh-4wv8-2f99, GHSA-jg8r-5jh2-v2xj
+          fail-on-severity: moderate
+          show-openssf-scorecard: true
+      - name: Explain private-repository dependency review coverage
+        if: github.event_name == 'pull_request' && github.event.repository.visibility != 'public'
+        run: echo 'GitHub Dependency Review requires paid private-repository security features; the full production lockfile audit below remains mandatory.'
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Enforce the production advisory allowlist and expiry
+        run: node .github/scripts/audit-production.mjs
+      - name: Secret scan
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/repo:ro" \
+            --workdir /repo \
+            "$GITLEAKS_IMAGE" \
+            git --source=/repo --redact --verbose
+      - name: Filesystem vulnerability and misconfiguration scan
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/workspace:ro" \
+            "$TRIVY_IMAGE" \
+            fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 /workspace
+      - name: Generate release SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          artifact-name: dgtl-platform-sbom.spdx.json
+          output-file: dgtl-platform-sbom.spdx.json

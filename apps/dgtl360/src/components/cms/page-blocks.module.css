@@ -1,0 +1,57 @@
+.page { background: #f6f4ef; color: #131313; }
+.block { padding: clamp(4rem, 9vw, 9rem) clamp(1.25rem, 6vw, 7rem); }
+.narrow { margin-inline: auto; max-width: 980px; }
+.kicker { font: 700 .72rem/1 var(--font-mono), monospace; letter-spacing: .14em; text-transform: uppercase; }
+.hero { align-items: end; background: #111; color: #fff; display: grid; gap: 4vw; grid-template-columns: 1.1fr .9fr; min-height: 82svh; }
+.hero h1, .heading { font-size: clamp(3.5rem, 8vw, 8.5rem); font-weight: 500; letter-spacing: -.075em; line-height: .82; margin: 1.5rem 0; }
+.heroCopy > p:last-of-type, .lead { font-size: clamp(1rem, 1.5vw, 1.3rem); line-height: 1.65; max-width: 46rem; }
+.media { aspect-ratio: 4 / 3; overflow: hidden; position: relative; }
+.media img { object-fit: cover; }
+.media video { height: 100%; object-fit: cover; width: 100%; }
+.fileLink { align-items: center; background: #e8e4da; color: #111; display: flex; height: 100%; justify-content: center; padding: 2rem; text-decoration: underline; text-underline-offset: .3rem; }
+.links { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
+.button { background: #f4ff61; color: #111; display: inline-flex; padding: .9rem 1.2rem; text-decoration: none; }
+.index { background: #f4ff61; }
+.indexGrid, .cards, .members, .logos { display: grid; gap: 1px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 3rem; }
+.indexGrid a, .cards article, .members article { border-top: 1px solid currentColor; min-height: 12rem; padding: 1.5rem 0; text-decoration: none; }
+.overview { display: grid; gap: 6vw; grid-template-columns: .8fr 1.2fr; }
+.overview h2, .team h2, .service h2, .contact h2, .cta h2 { font-size: clamp(2.8rem, 6vw, 6.5rem); font-weight: 500; letter-spacing: -.06em; line-height: .9; margin: 1rem 0 2rem; }
+.overview p, .service p, .imageText p, .faq p { line-height: 1.7; }
+.capabilities { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; padding: 0; }
+.capabilities li { border: 1px solid currentColor; border-radius: 99px; padding: .55rem .8rem; }
+.statement { background: #ff5b35; }
+.statement p:last-child { font-size: 1.25rem; line-height: 1.7; max-width: 45rem; }
+.teamImages, .gallery { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-block: 3rem; }
+.teamImages .media, .gallery .media { aspect-ratio: 4 / 5; }
+.identity { background: #111; color: #f4ff61; overflow: hidden; }
+.wordmark { font-size: clamp(5rem, 19vw, 20rem); font-weight: 750; letter-spacing: -.1em; line-height: .7; margin: 0; white-space: nowrap; }
+.alphabet { display: flex; font-family: var(--font-mono), monospace; font-size: clamp(1rem, 3vw, 3rem); justify-content: space-between; letter-spacing: .2em; }
+.service { --cms-accent: #f4ff61; border-top: 1.5rem solid var(--cms-accent); }
+.serviceHeader { align-items: start; display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; }
+.serviceSections { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 3rem; }
+.serviceSections article { border-top: 1px solid; padding-block: 1.5rem; }
+.imageText { align-items: center; display: grid; gap: 6vw; grid-template-columns: 1fr 1fr; }
+.imageRight .media { order: 2; }
+.cta { background: #111; color: #fff; text-align: center; }
+.cta .button { margin-top: 1.5rem; }
+.cards { list-style: none; padding: 0; }
+.cards article { min-height: 20rem; padding-right: 1.5rem; }
+.cards h3 { font-size: 2rem; }
+.cards a { display: inline-block; margin-top: 1rem; }
+.faq details { border-top: 1px solid; padding: 1.4rem 0; }
+.faq details:last-child { border-bottom: 1px solid; }
+.faq summary { cursor: pointer; font-size: 1.35rem; }
+.contact { background: #f4ff61; display: grid; gap: 4rem; grid-template-columns: 1fr 1fr; }
+.contact address { display: flex; flex-direction: column; font-size: 1.25rem; font-style: normal; gap: 1rem; }
+.logos { align-items: center; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.logo { display: block; min-height: 7rem; position: relative; }
+.logo img { object-fit: contain; }
+.unsupported { border: 3px solid #c00; }
+.small { height: 2rem; }.medium { height: 5rem; }.large { height: 9rem; }
+@media (max-width: 800px) {
+  .hero, .overview, .serviceHeader, .imageText, .contact { grid-template-columns: 1fr; }
+  .indexGrid, .cards, .members { grid-template-columns: 1fr; }
+  .logos { grid-template-columns: repeat(2, 1fr); }
+  .serviceSections { grid-template-columns: 1fr; }
+  .imageRight .media { order: initial; }
+}

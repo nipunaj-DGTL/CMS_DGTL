@@ -1,0 +1,23 @@
+.git
+.next
+.npm-cache
+.pnpm-store
+node_modules
+# Never send local credentials to the Docker daemon/build cache.
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
+!**/.env.example
+!**/.env.*.example
+!**/*.env.example
+!**/*.env.*.example
+# Ignore uploaded bytes, not source directories named `media`.
+apps/cms/media
+test-results
+playwright-report
+coverage
+qa-evidence
+.backups
+.qa
+*.log

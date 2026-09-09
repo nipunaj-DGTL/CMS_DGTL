@@ -1,0 +1,40 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+!.env.*.example
+.npm-cache/
+.pnpm-store/
+.local-postgres/
+.local-postgres.log
+# Payload upload data is runtime state. Keep this path specific: a broad
+# `media/` rule also ignores the source Route Handler at
+# apps/cms/src/app/api/dgtl/public/v1/sites/[websiteKey]/media/.
+/apps/cms/media/
+/deploy/secrets/*.env
+/deploy/secrets/*.env.*
+!/deploy/secrets/*.env.example
+!/deploy/secrets/*.env.*.example
+/deploy/state/
+/.backups/
+/.qa/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.turbo/
+.vercel/
+.cache/
+out/
+/.tmp/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Unrelated local visual experiments and browser-console output.
+/document.documentElement.clientWidth
+/technology-education-poster*.png
+/technology-poster-color-*.png

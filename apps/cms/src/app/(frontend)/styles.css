@@ -1,0 +1,10 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #070b18; color: #eef2ff; font-family: Arial, sans-serif; }
+.cms-landing { align-items: center; display: grid; min-height: 100vh; padding: 8vw; }
+.cms-landing section { max-width: 900px; }
+.cms-landing p { color: #7dd3fc; font-size: .78rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.cms-landing h1 { font-size: clamp(3rem, 9vw, 7.5rem); letter-spacing: -.065em; line-height: .9; margin: .5rem 0 2rem; }
+.cms-landing__actions { display: flex; flex-wrap: wrap; gap: 1rem; }
+.cms-landing a { border: 1px solid #334155; border-radius: 999px; color: #eef2ff; padding: .85rem 1.2rem; text-decoration: none; }
+.cms-landing a:first-child { background: #eef2ff; color: #070b18; }

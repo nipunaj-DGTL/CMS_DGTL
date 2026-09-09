@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+overrides:
+  dompurify: 3.4.13

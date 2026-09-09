@@ -1,0 +1,323 @@
+name: Deploy immutable release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment containing the target host and approval rules
+        type: choice
+        options: [staging, production]
+        required: true
+      release_manifest:
+        description: Existing server-side manifest filename under /opt/dgtl/releases
+        type: string
+        required: true
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Require deployment tooling from the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          [[ "$REF_TYPE" == "branch" && "$REF_NAME" == "$DEFAULT_BRANCH" ]] || {
+            echo 'Run deployment only from the repository default branch.' >&2
+            exit 2
+          }
+      - name: Require successful CI for the exact tooling commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          result_file="$RUNNER_TEMP/successful-tooling-ci-runs.json"
+          gh api --method GET \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f event=push \
+            -f head_sha="$GITHUB_SHA" \
+            -f per_page=100 \
+            -f status=success \
+            >"$result_file"
+          jq -e --arg sha "$GITHUB_SHA" \
+            'any(.workflow_runs[]; .head_sha == $sha and .event == "push" and .conclusion == "success")' \
+            "$result_file" >/dev/null || {
+            echo 'A successful ci.yml push run for this exact tooling commit is required.' >&2
+            exit 1
+          }
+      - name: Validate release manifest name
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          RELEASE_MANIFEST: ${{ inputs.release_manifest }}
+        run: |
+          [[ "$RELEASE_MANIFEST" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.env$ ]] || {
+            echo 'release_manifest must be a simple .env filename, not a path.' >&2
+            exit 2
+          }
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || {
+            echo 'DEPLOY_HOST must be a DNS name or IPv4 address.' >&2
+            exit 2
+          }
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || {
+            echo 'DEPLOY_USER is invalid.' >&2
+            exit 2
+          }
+      - name: Configure pinned SSH host identity
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          [[ -n "$DEPLOY_SSH_KEY" && -n "$DEPLOY_KNOWN_HOSTS" ]] || {
+            echo 'Deployment SSH key and pinned known-host entries are required.' >&2
+            exit 2
+          }
+          umask 077
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" >~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Install the verified Cosign release
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+      - id: release_manifest
+        name: Verify release manifest and application image attestations
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          EXPECTED_VARIANT: ${{ inputs.environment }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_MANIFEST: ${{ inputs.release_manifest }}
+        run: |
+          release_file="$RUNNER_TEMP/release.env"
+          scp -q -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/dgtl/releases/${RELEASE_MANIFEST}" \
+            "$release_file"
+          chmod 600 "$release_file"
+
+          source deploy/scripts/common.sh
+          load_release "$release_file"
+          validate_digest_images
+          expected_prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+          [[ "$TOOLING_GIT_SHA" == "$GITHUB_SHA" ]] || {
+            echo 'Manifest tooling SHA must equal this deployment workflow commit.' >&2
+            exit 2
+          }
+          [[ "$SOURCE_REPOSITORY" == "$GITHUB_REPOSITORY" ]] || {
+            echo 'Manifest source repository does not match this repository.' >&2
+            exit 2
+          }
+          [[ "$IMAGE_REPOSITORY_PREFIX" == "$expected_prefix" ]] || {
+            echo 'Manifest image repository prefix does not match this repository owner.' >&2
+            exit 2
+          }
+          [[ "$IMAGE_BUILD_VARIANT" == "$EXPECTED_VARIANT" ]] || {
+            echo 'Manifest image build variant does not match the target Environment.' >&2
+            exit 2
+          }
+
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          logout_registry() {
+            docker logout ghcr.io >/dev/null 2>&1 || true
+          }
+          trap logout_registry EXIT
+          declare -A expected_matrix_targets=(
+            [CMS_WEB_IMAGE]=cms-web
+            [CMS_WORKER_IMAGE]=cms-worker
+            [CMS_MIGRATE_IMAGE]=cms-migrate
+            [CLIENT01_IMAGE]=client01
+            [DGTL360_IMAGE]=dgtl360
+          )
+          declare -A expected_docker_targets=(
+            [CMS_WEB_IMAGE]=web
+            [CMS_WORKER_IMAGE]=worker
+            [CMS_MIGRATE_IMAGE]=migrate
+            [CLIENT01_IMAGE]=web
+            [DGTL360_IMAGE]=web
+          )
+          escaped_repository="${SOURCE_REPOSITORY//./\\.}"
+          signer_identity_regex="^https://github\\.com/${escaped_repository}/\\.github/workflows/images\\.yml@refs/(heads|tags)/.+$"
+          cosign_identity=(
+            --certificate-identity-regexp "$signer_identity_regex"
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+            --certificate-github-workflow-repository "$SOURCE_REPOSITORY"
+            --certificate-github-workflow-sha "$SOURCE_GIT_SHA"
+          )
+          for image_variable in CMS_WEB_IMAGE CMS_WORKER_IMAGE CMS_MIGRATE_IMAGE CLIENT01_IMAGE DGTL360_IMAGE; do
+            image="${!image_variable}"
+            cosign verify-attestation "${cosign_identity[@]}" \
+              --type slsaprovenance1 "$image" >/dev/null
+            cosign verify-attestation "${cosign_identity[@]}" \
+              --type spdxjson "$image" >/dev/null
+            policy_envelopes="$RUNNER_TEMP/${image_variable}-release-policy-envelopes.json"
+            policy_statements="$RUNNER_TEMP/${image_variable}-release-policy-statements.json"
+            cosign verify-attestation "${cosign_identity[@]}" \
+              --type https://dgtl.lk/attestations/image-release/v1 \
+              "$image" >"$policy_envelopes"
+            jq -s \
+              '[.[] | if type == "array" then .[] else . end | .payload | @base64d | fromjson]' \
+              "$policy_envelopes" >"$policy_statements"
+            image_name="${image%@sha256:*}"
+            image_digest="${image##*@sha256:}"
+            jq -e \
+              --arg client01SiteUrl "$IMAGE_CLIENT01_SITE_URL" \
+              --arg client01WebsiteKey "$CLIENT01_WEBSITE_KEY" \
+              --arg cmsPublicUrl "$IMAGE_CMS_PUBLIC_URL" \
+              --arg deploymentVariant "$IMAGE_BUILD_VARIANT" \
+              --arg dgtl360SiteUrl "$IMAGE_DGTL360_SITE_URL" \
+              --arg dgtl360WebsiteKey "$DGTL360_WEBSITE_KEY" \
+              --arg dockerTarget "${expected_docker_targets[$image_variable]}" \
+              --arg imageDigest "$image_digest" \
+              --arg imageName "$image_name" \
+              --arg matrixTarget "${expected_matrix_targets[$image_variable]}" \
+              --arg sourceGitSha "$SOURCE_GIT_SHA" \
+              --arg sourceRepository "$SOURCE_REPOSITORY" \
+              'any(.[];
+                .predicateType == "https://dgtl.lk/attestations/image-release/v1" and
+                (.subject | length == 1) and
+                .subject[0].name == $imageName and
+                .subject[0].digest.sha256 == $imageDigest and
+                .predicate.schemaVersion == 1 and
+                .predicate.matrixTarget == $matrixTarget and
+                .predicate.dockerTarget == $dockerTarget and
+                .predicate.deploymentVariant == $deploymentVariant and
+                .predicate.cmsPublicUrl == $cmsPublicUrl and
+                .predicate.client01SiteUrl == $client01SiteUrl and
+                .predicate.client01WebsiteKey == $client01WebsiteKey and
+                .predicate.dgtl360SiteUrl == $dgtl360SiteUrl and
+                .predicate.dgtl360WebsiteKey == $dgtl360WebsiteKey and
+                .predicate.sourceRepository == $sourceRepository and
+                .predicate.sourceGitSha == $sourceGitSha)' \
+              "$policy_statements" >/dev/null || {
+              echo "Signed release policy does not match the manifest for ${image_variable}." >&2
+              exit 1
+            }
+          done
+
+          release_sha256="$(sha256sum "$release_file" | awk '{print $1}')"
+          [[ "$release_sha256" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha256=$release_sha256" >>"$GITHUB_OUTPUT"
+      - name: Stage immutable deployment tooling
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          tooling_root='/opt/dgtl/tooling'
+          tooling_final="${tooling_root}/${GITHUB_SHA}"
+          tooling_stage="${tooling_root}/.incoming-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          inventory="$RUNNER_TEMP/tooling-content.sha256"
+          (
+            cd deploy
+            find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
+          ) >"$inventory"
+          inventory_digest="$(sha256sum "$inventory" | awk '{print $1}')"
+          [[ "$inventory_digest" =~ ^[0-9a-f]{64}$ ]]
+
+          if ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "bash -s -- '${tooling_final}' '${GITHUB_SHA}' '${inventory_digest}'" <<'REMOTE'
+          set -Eeuo pipefail
+          directory="$1"
+          expected_sha="$2"
+          expected_inventory_digest="$3"
+          [[ -e "$directory" ]] || exit 42
+          [[ -d "$directory" && ! -L "$directory" && -O "$directory" ]]
+          [[ -f "$directory/.source-sha" && ! -L "$directory/.source-sha" ]]
+          [[ "$(<"$directory/.source-sha")" == "$expected_sha" ]]
+          [[ -f "$directory/.content-sha256" && ! -L "$directory/.content-sha256" ]]
+          [[ "$(sha256sum "$directory/.content-sha256" | awk '{print $1}')" == "$expected_inventory_digest" ]]
+          [[ -z "$(find "$directory" -type l -print -quit)" ]]
+          (cd "$directory" && sha256sum --check --strict .content-sha256)
+          REMOTE
+          then
+            echo "Reusing verified deployment tooling for ${GITHUB_SHA}."
+            exit 0
+          else
+            existing_status=$?
+            [[ "$existing_status" -eq 42 ]] || exit "$existing_status"
+          fi
+
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "bash -s -- '${tooling_root}' '${tooling_stage}'" <<'REMOTE'
+          set -Eeuo pipefail
+          tooling_root="$1"
+          tooling_stage="$2"
+          if [[ ! -e "$tooling_root" ]]; then
+            mkdir -m 700 -- "$tooling_root"
+          fi
+          [[ -d "$tooling_root" && ! -L "$tooling_root" && -O "$tooling_root" ]]
+          [[ ! -e "$tooling_stage" ]]
+          mkdir -m 700 -- "$tooling_stage"
+          REMOTE
+          rsync -az -e 'ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15' \
+            --delete --exclude state/ deploy/ "${DEPLOY_USER}@${DEPLOY_HOST}:${tooling_stage}/"
+          scp -q -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "$inventory" "${DEPLOY_USER}@${DEPLOY_HOST}:${tooling_stage}/.content-sha256"
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "bash -s -- '${tooling_stage}' '${tooling_final}' '${GITHUB_SHA}' '${inventory_digest}'" <<'REMOTE'
+          set -Eeuo pipefail
+          tooling_stage="$1"
+          tooling_final="$2"
+          expected_sha="$3"
+          expected_inventory_digest="$4"
+          [[ -d "$tooling_stage" && ! -L "$tooling_stage" && -O "$tooling_stage" ]]
+          [[ ! -e "$tooling_final" ]]
+          [[ -z "$(find "$tooling_stage" -type l -print -quit)" ]]
+          umask 077
+          printf '%s\n' "$expected_sha" >"$tooling_stage/.source-sha"
+          chmod 600 "$tooling_stage/.content-sha256" "$tooling_stage/.source-sha"
+          [[ "$(sha256sum "$tooling_stage/.content-sha256" | awk '{print $1}')" == "$expected_inventory_digest" ]]
+          (cd "$tooling_stage" && sha256sum --check --strict .content-sha256)
+          mv -- "$tooling_stage" "$tooling_final"
+          REMOTE
+      - name: Deploy and run read-only smoke checks
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          RELEASE_MANIFEST: ${{ inputs.release_manifest }}
+          RELEASE_SHA256: ${{ steps.release_manifest.outputs.sha256 }}
+        run: |
+          [[ "$RELEASE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "bash /opt/dgtl/tooling/${GITHUB_SHA}/scripts/deploy.sh /opt/dgtl/releases/${RELEASE_MANIFEST} ${RELEASE_SHA256}"
+      - name: Remove this run's incomplete tooling stage
+        if: always()
+        continue-on-error: true
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+        run: |
+          tooling_stage="/opt/dgtl/tooling/.incoming-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "bash -s -- '${tooling_stage}'" <<'REMOTE'
+          set -Eeuo pipefail
+          tooling_stage="$1"
+          [[ "$tooling_stage" =~ ^/opt/dgtl/tooling/\.incoming-[0-9a-f]{40}-[0-9]+-[0-9]+$ ]] || {
+            echo 'Refusing unsafe tooling cleanup path.' >&2
+            exit 2
+          }
+          if [[ -e "$tooling_stage" ]]; then
+            [[ -d "$tooling_stage" && ! -L "$tooling_stage" && -O "$tooling_stage" ]]
+            rm -rf -- "$tooling_stage"
+          fi
+          REMOTE

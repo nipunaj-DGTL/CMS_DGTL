@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ${SECRETS_DIR:-./secrets}/postgres.env
+    networks:
+      data: {}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+    shm_size: 256mb
+    logging:
+      driver: json-file
+      options:
+        max-file: "5"
+        max-size: 10m
+
+  cms:
+    networks:
+      data: {}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+
+  worker:
+    networks:
+      data: {}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+      cms:
+        condition: service_healthy
+
+  migrate:
+    networks:
+      data: {}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+
+  # The official image updates virus definitions in its persistent volume.
+  # It also supplies a clamd PING health check, so application and migration
+  # containers wait for signatures to load instead of merely waiting for PID 1.
+  # Keep port 3310 private to the Compose network; CMS_MEDIA_SCAN_MODE=clamav
+  # and CLAMAV_HOST=clamav make uploads fail closed if scanning is unavailable.
+  clamav:
+    image: ${CLAMAV_IMAGE:-clamav/clamav:stable}
+    restart: unless-stopped
+    init: true
+    networks:
+      data: {}
+      scanner_egress: {}
+    expose:
+      - "3310"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "printf 'PING\\n' | nc -w 5 127.0.0.1 3310 | grep -q PONG",
+        ]
+      interval: 20s
+      timeout: 10s
+      start_period: 180s
+      retries: 15
+    volumes:
+      - clamav_signatures:/var/lib/clamav
+    logging:
+      driver: json-file
+      options:
+        max-file: "5"
+        max-size: 10m
+
+volumes:
+  clamav_signatures:
+  postgres_data:
+
+networks:
+  # Client frontends and Caddy never join this network, so a compromised
+  # renderer cannot connect directly to PostgreSQL or clamd.
+  data:
+    driver: bridge
+    internal: true
+  # ClamAV needs outbound access to update signatures without exposing its
+  # private clamd socket to application or edge containers.
+  scanner_egress:
+    driver: bridge

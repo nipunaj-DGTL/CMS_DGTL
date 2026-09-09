@@ -1,0 +1,236 @@
+.section {
+  display: grid;
+  grid-template-columns: 0.95fr 1.1fr;
+  min-height: 100svh;
+  gap: clamp(2rem, 5vw, 7rem);
+  padding: clamp(6rem, 9vw, 9rem) var(--page-gutter) 4rem;
+  background: #f2f1ed;
+  color: #090909;
+}
+
+.roster {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-self: center;
+  gap: 0.65rem;
+  animation: team-view-in 420ms cubic-bezier(.2, .75, .2, 1) both;
+}
+
+.portrait {
+  position: relative;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: #d9d9d6;
+  cursor: pointer;
+  filter: grayscale(1);
+  transition: border 180ms ease, filter 180ms ease, transform 180ms ease;
+}
+
+.portrait:nth-child(5n + 1),
+.portrait:nth-child(5n + 4) {
+  min-height: 230px;
+}
+
+.portrait:hover,
+.portrait:focus-visible,
+.portrait.selected {
+  z-index: 2;
+  border-color: #f1682f;
+  filter: grayscale(0);
+  transform: translateY(-3px);
+}
+
+.portrait span {
+  position: absolute;
+  z-index: 2;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  padding: 0.25rem;
+  background: #fff;
+  font: 700 0.55rem/1 var(--font-mono), monospace;
+}
+
+.profile {
+  position: relative;
+  min-height: 72vh;
+  align-self: center;
+  overflow: hidden;
+  background: transparent;
+}
+
+.intro {
+  display: flex;
+  min-height: 72vh;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 7vw, 7rem);
+  animation: team-view-in 420ms cubic-bezier(.2, .75, .2, 1) both;
+}
+
+.intro p,
+.intro span,
+.back,
+.profileCopy p {
+  font: 650 0.65rem/1.4 var(--font-mono), monospace;
+  letter-spacing: 0.09em;
+}
+
+.intro h2 {
+  margin: 2rem 0 1.5rem;
+  font-size: clamp(3.8rem, 7.4vw, 8.4rem);
+  font-weight: 780;
+  line-height: 0.88;
+  letter-spacing: -0.075em;
+}
+
+.intro span {
+  color: #666;
+}
+
+.profileImage {
+  position: absolute;
+  inset: 0;
+  background: #f1682f;
+  animation: team-portrait-in 520ms cubic-bezier(.2, .75, .2, 1) both;
+}
+
+.profileImage::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(180deg, rgba(241,104,47,.08), rgba(0,0,0,.82));
+  mix-blend-mode: multiply;
+}
+
+.back {
+  position: absolute;
+  z-index: 4;
+  top: 1.25rem;
+  left: 1.25rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(255,255,255,.65);
+  border-radius: 999px;
+  background: rgba(0,0,0,.2);
+  color: #fff;
+  cursor: pointer;
+}
+
+.profileCopy {
+  position: absolute;
+  z-index: 3;
+  right: clamp(1.5rem, 4vw, 4rem);
+  bottom: clamp(1.5rem, 4vw, 4rem);
+  left: clamp(1.5rem, 4vw, 4rem);
+  color: #fff;
+  text-align: center;
+  animation: team-copy-in 360ms cubic-bezier(.2, .75, .2, 1) both;
+}
+
+@keyframes team-view-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes team-portrait-in {
+  from { opacity: 0.25; transform: scale(1.035); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes team-copy-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.profileCopy h3 {
+  margin: 0.7rem 0 1rem;
+  font-size: clamp(2.8rem, 5vw, 6.2rem);
+  line-height: 0.88;
+  letter-spacing: -0.06em;
+  text-transform: uppercase;
+}
+
+.profileCopy span {
+  display: block;
+  max-width: 50rem;
+  margin: auto;
+  font-family: var(--font-mono), monospace;
+  line-height: 1.5;
+}
+
+@media (min-width: 901px) and (min-height: 800px) {
+  .section {
+    padding-block: clamp(5rem, 9vh, 8rem) clamp(2.5rem, 5vh, 4rem);
+  }
+
+  .profile,
+  .intro {
+    min-height: min(72vh, 720px);
+  }
+
+  .portrait,
+  .portrait:nth-child(5n + 1),
+  .portrait:nth-child(5n + 4) {
+    min-height: clamp(130px, 17vh, 230px);
+  }
+}
+
+@media (max-width: 900px) {
+  .section {
+    grid-template-columns: 1fr;
+  }
+
+  .profile,
+  .intro {
+    min-height: 70svh;
+  }
+}
+
+@media (max-width: 680px) {
+  .roster {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .portrait,
+  .portrait:nth-child(5n + 1),
+  .portrait:nth-child(5n + 4) {
+    min-height: 180px;
+  }
+
+  .hasSelection {
+    grid-template-rows: auto 1fr;
+    gap: 1rem;
+  }
+
+  .hasSelection .roster {
+    display: grid;
+    grid-auto-columns: 92px;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    padding-bottom: 0.55rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+  }
+
+  .hasSelection .portrait,
+  .hasSelection .portrait:nth-child(5n + 1),
+  .hasSelection .portrait:nth-child(5n + 4) {
+    min-height: 112px;
+    scroll-snap-align: start;
+  }
+
+  .hasSelection .profile,
+  .hasSelection .profileImage {
+    min-height: 58svh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roster,
+  .intro,
+  .profileImage,
+  .profileCopy {
+    animation: none;
+  }
+}

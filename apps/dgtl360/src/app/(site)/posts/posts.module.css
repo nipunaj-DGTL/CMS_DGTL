@@ -1,0 +1,30 @@
+.page { min-height: 100svh; padding: 9rem var(--page-gutter) 5rem; background: #f6f4ef; color: #151515; }
+.header { max-width: var(--content-max); margin: 0 auto 4rem; }
+.kicker { font: 700 .72rem/1 var(--font-mono), monospace; letter-spacing: .14em; text-transform: uppercase; }
+.header h1 { max-width: 9ch; margin: 1rem 0; font-size: clamp(4rem, 10vw, 10rem); font-weight: 500; letter-spacing: -.075em; line-height: .82; }
+.header > p:last-child { max-width: 45rem; font-size: 1.1rem; line-height: 1.65; }
+.grid { display: grid; max-width: var(--content-max); margin: 0 auto; gap: 1px; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #151515; border: 1px solid #151515; }
+.card { min-width: 0; background: #f6f4ef; }
+.image { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; background: #ddd8cd; }
+.image img, .featured img { object-fit: cover; }
+.copy { display: grid; gap: .8rem; min-height: 18rem; padding: 1.5rem; align-content: start; }
+.meta, .byline { font: 700 .68rem/1.4 var(--font-mono), monospace; letter-spacing: .08em; text-transform: uppercase; }
+.copy h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 3rem); font-weight: 550; letter-spacing: -.045em; line-height: .96; }
+.copy p { margin: 0; line-height: 1.6; }
+.read { margin-top: auto; font-weight: 700; text-decoration: underline; text-underline-offset: .35rem; }
+.empty { max-width: var(--content-max); margin: 0 auto; padding: 4rem 0; border-top: 1px solid; font-size: 1.15rem; }
+.pagination { display: flex; max-width: var(--content-max); margin: 2rem auto 0; align-items: center; justify-content: space-between; font: 700 .72rem/1 var(--font-mono), monospace; }
+.pagination a { padding: .8rem 1rem; border: 1px solid; }
+.pagination span { grid-column: 2; }
+.article { background: #f6f4ef; color: #151515; }
+.articleHeader { display: grid; max-width: var(--content-max); margin: 0 auto; gap: 3rem; padding: 10rem var(--page-gutter) 4rem; grid-template-columns: 1.1fr .9fr; align-items: end; }
+.articleHeader h1 { margin: 1rem 0 1.5rem; font-size: clamp(3.5rem, 8vw, 8.5rem); font-weight: 500; letter-spacing: -.07em; line-height: .84; }
+.excerpt { max-width: 46rem; font-size: 1.15rem; line-height: 1.65; }
+.featured { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: #ddd8cd; }
+.categories { display: flex; flex-wrap: wrap; gap: .45rem; margin: 1.2rem 0 0; padding: 0; list-style: none; }
+.categories li { padding: .45rem .65rem; border: 1px solid; border-radius: 99px; font-size: .78rem; }
+@media (max-width: 850px) {
+  .grid { grid-template-columns: 1fr; }
+  .articleHeader { grid-template-columns: 1fr; }
+}
+

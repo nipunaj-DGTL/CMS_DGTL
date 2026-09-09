@@ -1,0 +1,173 @@
+.statement {
+  display: grid;
+  min-height: 100svh;
+  align-content: center;
+  padding: clamp(7rem, 12vw, 12rem) max(var(--page-gutter), calc((100vw - var(--content-max)) / 2));
+  background:
+    radial-gradient(circle at 60% 38%, rgba(255,255,255,.035), transparent 32%),
+    #06080b;
+}
+
+.integrated {
+  grid-template-columns: minmax(260px, 0.78fr) minmax(420px, 1.22fr);
+  grid-template-rows: auto auto auto auto;
+  column-gap: clamp(42px, 7vw, 118px);
+  row-gap: clamp(14px, 2.2vh, 26px);
+}
+
+.integrated .kicker {
+  grid-column: 1 / -1;
+}
+
+.integrated h2 {
+  grid-column: 1;
+  grid-row: 2 / 5;
+  max-width: 7ch;
+  font-size: clamp(4rem, 8.4vw, 8.6rem);
+  line-height: 0.78;
+}
+
+.aboutCopy {
+  display: grid;
+  max-width: 52rem;
+  gap: clamp(10px, 1.5vh, 18px);
+}
+
+.aboutCopy p {
+  margin: 0;
+  color: rgba(243, 241, 237, 0.62);
+  font-size: clamp(0.78rem, 1.02vw, 1rem);
+  line-height: 1.52;
+}
+
+.aboutCopy .lead {
+  color: var(--color-fg);
+  font-size: clamp(1rem, 1.45vw, 1.38rem);
+  font-weight: 560;
+  line-height: 1.38;
+}
+
+.capabilities {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 7px;
+  list-style: none;
+}
+
+.capabilities li {
+  padding: 7px 10px;
+  border: 1px solid rgba(17, 174, 202, 0.28);
+  border-radius: 999px;
+  background: rgba(17, 174, 202, 0.07);
+  font: 700 0.5rem/1 var(--font-mono), monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.companyCta {
+  width: fit-content;
+  min-height: 42px;
+  padding: 0 15px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(17, 174, 202, 0.28);
+  border-radius: 12px 3px 12px 3px;
+  background: rgba(17, 174, 202, 0.08);
+  font: 700 0.58rem/1 var(--font-mono), monospace;
+  letter-spacing: 0.1em;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.companyCta:hover,
+.companyCta:focus-visible {
+  background: rgba(17, 174, 202, 0.19);
+  transform: translateY(-2px);
+}
+
+.kicker {
+  margin: 0 0 2.2rem;
+  font: 700 0.7rem/1 var(--font-mono), monospace;
+  letter-spacing: 0.11em;
+}
+
+.statement h2 {
+  max-width: 13ch;
+  margin: 0;
+  font: 400 clamp(4rem, 8.3vw, 9.6rem)/0.82 var(--font-display);
+  letter-spacing: -0.07em;
+}
+
+.body {
+  max-width: 42rem;
+  margin: 2rem 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: clamp(1rem, 1.45vw, 1.55rem);
+  line-height: 1.5;
+}
+
+.attitude {
+  min-height: 92svh;
+  display: block;
+}
+
+.attitude h2 {
+  max-width: 12ch;
+}
+
+@media (min-width: 901px) and (min-height: 800px) {
+  .statement {
+    padding-block: clamp(6rem, 11vh, 10rem);
+  }
+
+  .statement h2 {
+    font-size: clamp(4rem, min(8.3vw, 11vh), 9.6rem);
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1000px) {
+  .integrated {
+    grid-template-columns: minmax(210px, 0.72fr) minmax(340px, 1.28fr);
+    column-gap: clamp(24px, 5vw, 54px);
+  }
+
+  .integrated h2 {
+    font-size: clamp(3.6rem, 9vw, 6rem);
+  }
+}
+
+@media (max-width: 700px) {
+  .statement {
+    min-height: auto;
+    padding-block: 7rem;
+  }
+
+  .statement h2 {
+    font-size: clamp(3.2rem, 16vw, 5.5rem);
+    line-height: 0.88;
+  }
+
+  .body {
+    font-size: 1rem;
+  }
+
+  .integrated {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .integrated .kicker,
+  .integrated h2,
+  .aboutCopy,
+  .capabilities,
+  .companyCta {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .integrated h2 {
+    margin-bottom: 1.4rem;
+  }
+}

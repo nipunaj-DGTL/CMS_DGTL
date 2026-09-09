@@ -1,0 +1,26 @@
+{
+  "name": "dgtl-cms-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.22.0 <23"
+  },
+  "scripts": {
+    "build": "pnpm --filter @dgtl/content-contracts build && pnpm --filter @dgtl/cms-client build && pnpm --filter @dgtl/cms build && pnpm --filter @dgtl/website build && pnpm --filter @dgtl/dgtl360 build",
+    "dev": "node scripts/dev-all.mjs",
+    "dev:all": "node scripts/dev-all.mjs",
+    "dev:cms": "pnpm --filter @dgtl/cms dev",
+    "dev:dgtl360": "pnpm --filter @dgtl/dgtl360 dev",
+    "dev:website": "pnpm --filter @dgtl/website dev",
+    "dev:worker": "pnpm --filter @dgtl/cms worker",
+    "generate:types": "pnpm --filter @dgtl/cms generate:types",
+    "lint": "pnpm -r lint",
+    "migrate": "pnpm --filter @dgtl/cms migrate",
+    "migrate:status": "pnpm --filter @dgtl/cms migrate:status",
+    "seed": "pnpm --filter @dgtl/cms seed",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "worker:once": "pnpm --filter @dgtl/cms worker:once"
+  }
+}

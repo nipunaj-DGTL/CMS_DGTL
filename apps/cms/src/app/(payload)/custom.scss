@@ -1,0 +1,18 @@
+.dgtl-dashboard {
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--theme-elevation-0), var(--theme-elevation-50));
+  display: grid;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+}
+.dgtl-dashboard h1 { font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -0.04em; margin: 0.25rem 0; }
+.dgtl-eyebrow { color: #5b67f1; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; margin: 0; text-transform: uppercase; }
+.dgtl-metrics { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.dgtl-metric { background: var(--theme-elevation-100); border-radius: 12px; color: var(--theme-text); display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; text-decoration: none; }
+.dgtl-metric strong { font-size: 2rem; }
+.dgtl-tenant-banner { background: #172554; border: 2px solid #60a5fa; border-radius: 10px; color: #eff6ff; display: flex; flex-direction: column; gap: 0.25rem; margin: 0 0.75rem 1rem; padding: 0.85rem; }
+.dgtl-tenant-banner > span { color: #93c5fd; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.dgtl-tenant-banner > strong { font-size: 0.95rem; }
+.dgtl-tenant-banner > small { color: #bfdbfe; font-size: 0.7rem; }

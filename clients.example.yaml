@@ -1,0 +1,29 @@
+clients:
+  - tenantKey: client-01
+    tenantName: Client 01
+    websiteKey: client-01-main
+    websiteName: Client 01 Website
+    domain: client-01.example.test
+    frontendKey: frontend-family-01
+    adminEmail: admin-01@example.invalid
+  - tenantKey: client-02
+    tenantName: Client 02
+    websiteKey: client-02-main
+    websiteName: Client 02 Website
+    domain: client-02.example.test
+    frontendKey: frontend-family-01
+    adminEmail: admin-02@example.invalid
+  - tenantKey: client-03
+    tenantName: Client 03
+    websiteKey: client-03-main
+    websiteName: Client 03 Website
+    domain: client-03.example.test
+    frontendKey: frontend-family-01
+    adminEmail: admin-03@example.invalid
+  - tenantKey: client-04
+    tenantName: Client 04
+    websiteKey: client-04-main
+    websiteName: Client 04 Website
+    domain: client-04.example.test
+    frontendKey: frontend-family-01
+    adminEmail: admin-04@example.invalid

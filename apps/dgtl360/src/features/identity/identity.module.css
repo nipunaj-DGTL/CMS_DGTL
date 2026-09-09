@@ -1,0 +1,96 @@
+.section {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  overflow: hidden;
+  place-items: center;
+  isolation: isolate;
+  background: #010604;
+}
+
+.section::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, transparent 22%, rgba(0, 0, 0, 0.66) 100%),
+    repeating-linear-gradient(180deg, rgba(0, 255, 88, 0.018) 0, rgba(0, 255, 88, 0.018) 1px, transparent 1px, transparent 3px);
+}
+
+.rain {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.7;
+  mask-image: linear-gradient(180deg, #000, transparent 88%);
+}
+
+.rain span {
+  position: absolute;
+  top: -70%;
+  left: var(--column-left);
+  width: 1.5rem;
+  white-space: pre-wrap;
+  color: #10a84e;
+  font: 500 clamp(0.8rem, 1.1vw, 1.3rem)/1.6 var(--font-mono), monospace;
+  text-shadow: 0 0 10px rgba(66,255,115,.35);
+  writing-mode: vertical-rl;
+  animation: fall var(--column-duration) linear var(--column-delay) infinite, flicker 2.3s steps(4, end) infinite;
+  animation-play-state: paused;
+}
+
+.section[data-active='true'] .rain span {
+  animation-play-state: running;
+}
+
+.rain span:nth-child(3n) {
+  color: #064e2a;
+  opacity: 0.6;
+}
+
+.rain span:nth-child(5n) {
+  color: #8afcad;
+}
+
+.wordmark {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  color: #dcfff2;
+  font-size: clamp(9rem, 30vw, 34rem);
+  font-weight: 850;
+  line-height: 0.7;
+  letter-spacing: -0.09em;
+  white-space: nowrap;
+}
+
+@keyframes fall {
+  to { transform: translateY(190vh); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.5; }
+  40% { opacity: 0.9; }
+  65% { opacity: 0.35; }
+}
+
+@media (max-width: 700px) {
+  .rain span:nth-child(even) {
+    display: none;
+  }
+
+  .wordmark {
+    font-size: 38vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rain span {
+    top: var(--column-static-y);
+    animation: none;
+    transform: translateX(-50%);
+  }
+}

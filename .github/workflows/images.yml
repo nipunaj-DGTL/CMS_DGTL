@@ -1,0 +1,423 @@
+name: Build release images
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      deployment_variant:
+        description: Public-origin variant recorded with the image digest
+        type: choice
+        options: [staging, production]
+        default: staging
+        required: true
+      cms_public_url:
+        description: Public CMS origin compiled into frontend image allowlists
+        type: string
+        default: https://cms.dgtl.lk
+        required: true
+      client01_site_url:
+        description: Public Client 01 origin compiled into its image
+        type: string
+        default: https://client01.dgtl.lk
+        required: true
+      dgtl360_site_url:
+        description: Public DGTL360 origin compiled into its image
+        type: string
+        default: https://dgtl.lk
+        required: true
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  # moby/buildkit v0.32.2 multi-platform index, reviewed 2026-09-08.
+  BUILDKIT_IMAGE: docker.io/moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+  # docker/buildx v0.36.1 linux-amd64 release asset, reviewed 2026-09-08.
+  BUILDX_LINUX_AMD64_SHA256: 48af8a397ebd60178778bf63611dbcebe5f5e7a9be90eb9147b24b9587455778
+  BUILDX_URL: https://github.com/docker/buildx/releases/download/v0.36.1/buildx-v0.36.1.linux-amd64
+  CLIENT01_WEBSITE_KEY: client-01-main
+  DGTL360_WEBSITE_KEY: client-02-main
+  # aquasec/trivy 0.64.1, reviewed 2026-09-08.
+  TRIVY_IMAGE: docker.io/aquasec/trivy@sha256:a8ca29078522f30393bdb34225e4c0994d38f37083be81a42da3a2a7e1488e9e
+
+jobs:
+  verify:
+    name: Verify release source
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require release source from the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "$REF_TYPE" == 'branch' && "$REF_NAME" == "$DEFAULT_BRANCH" ]] || {
+              echo 'Manual release builds must run from the repository default branch.' >&2
+              exit 2
+            }
+          else
+            [[ "$REF_TYPE" == 'tag' ]] || {
+              echo 'Automatic release builds require a tag.' >&2
+              exit 2
+            }
+            git merge-base --is-ancestor \
+              "$GITHUB_SHA" "refs/remotes/origin/$DEFAULT_BRANCH" || {
+              echo 'Release tags must point to a commit contained in the default branch.' >&2
+              exit 2
+            }
+          fi
+      - name: Require successful CI for the exact release commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          result_file="$RUNNER_TEMP/successful-ci-runs.json"
+          gh api --method GET \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f event=push \
+            -f head_sha="$GITHUB_SHA" \
+            -f per_page=100 \
+            -f status=success \
+            >"$result_file"
+          jq -e --arg sha "$GITHUB_SHA" \
+            'any(.workflow_runs[]; .head_sha == $sha and .event == "push" and .conclusion == "success")' \
+            "$result_file" >/dev/null || {
+            echo 'A successful ci.yml push run for this exact commit is required.' >&2
+            exit 1
+          }
+      - name: Validate public image-build origins
+        env:
+          CLIENT01_SITE_URL: ${{ inputs.client01_site_url || 'https://client01.dgtl.lk' }}
+          CMS_PUBLIC_URL: ${{ inputs.cms_public_url || 'https://cms.dgtl.lk' }}
+          DGTL360_SITE_URL: ${{ inputs.dgtl360_site_url || 'https://dgtl.lk' }}
+        run: |
+          [[ "$CLIENT01_WEBSITE_KEY" == 'client-01-main' && "$DGTL360_WEBSITE_KEY" == 'client-02-main' ]] || {
+            echo 'Canonical website build identities changed unexpectedly.' >&2
+            exit 2
+          }
+          for origin in "$CMS_PUBLIC_URL" "$CLIENT01_SITE_URL" "$DGTL360_SITE_URL"; do
+            [[ "$origin" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] || {
+              echo "Build origins must be HTTPS origins without paths: $origin" >&2
+              exit 2
+            }
+          done
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.deployment_variant || 'production' }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: cms-web
+            dockerfile: apps/cms/Dockerfile
+            target: web
+            image: dgtl-cms-web
+          - name: cms-worker
+            dockerfile: apps/cms/Dockerfile
+            target: worker
+            image: dgtl-cms-worker
+          - name: cms-migrate
+            dockerfile: apps/cms/Dockerfile
+            target: migrate
+            image: dgtl-cms-migrate
+          - name: client01
+            dockerfile: apps/website/Dockerfile
+            target: web
+            image: dgtl-client01
+          - name: dgtl360
+            dockerfile: apps/dgtl360/Dockerfile
+            target: web
+            image: dgtl360
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install the checksum-verified Buildx binary
+        run: |
+          buildx_binary="$RUNNER_TEMP/docker-buildx"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --retry 3 --retry-all-errors \
+            --output "$buildx_binary" "$BUILDX_URL"
+          printf '%s  %s\n' "$BUILDX_LINUX_AMD64_SHA256" "$buildx_binary" \
+            | sha256sum --check --strict -
+          install -d -m 700 "$HOME/.docker/cli-plugins"
+          install -m 755 "$buildx_binary" "$HOME/.docker/cli-plugins/docker-buildx"
+          docker buildx version \
+            | grep -Eq 'github.com/docker/buildx v0\.36\.1([[:space:]]|$)'
+      - id: buildx
+        name: Create the digest-pinned BuildKit builder
+        env:
+          MATRIX_TARGET: ${{ matrix.name }}
+        run: |
+          builder_name="dgtl-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${MATRIX_TARGET}"
+          [[ "$builder_name" =~ ^dgtl-[0-9]+-[0-9]+-[a-z0-9-]+$ ]]
+          docker buildx create --name "$builder_name" \
+            --driver docker-container \
+            --driver-opt "image=$BUILDKIT_IMAGE" \
+            --use
+          docker buildx inspect "$builder_name" --bootstrap
+          echo "name=$builder_name" >>"$GITHUB_OUTPUT"
+      - id: image
+        name: Normalize the GHCR repository name
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "prefix=ghcr.io/${OWNER,,}" >>"$GITHUB_OUTPUT"
+          echo "name=ghcr.io/${OWNER,,}/${{ matrix.image }}" >>"$GITHUB_OUTPUT"
+          echo "local=dgtl-local/${{ matrix.name }}:scan-${GITHUB_SHA}" >>"$GITHUB_OUTPUT"
+      - id: build_args
+        name: Bind canonical website identities and public origins to the build
+        env:
+          CLIENT01_SITE_URL: ${{ inputs.client01_site_url || 'https://client01.dgtl.lk' }}
+          CMS_PUBLIC_URL: ${{ inputs.cms_public_url || 'https://cms.dgtl.lk' }}
+          DGTL360_SITE_URL: ${{ inputs.dgtl360_site_url || 'https://dgtl.lk' }}
+          MATRIX_TARGET: ${{ matrix.name }}
+        run: |
+          {
+            echo 'value<<DGTL_BUILD_ARGS'
+            case "$MATRIX_TARGET" in
+              client01)
+                printf 'CMS_URL=%s\nCMS_WEBSITE_KEY=%s\nNEXT_PUBLIC_SITE_URL=%s\n' \
+                  "$CMS_PUBLIC_URL" "$CLIENT01_WEBSITE_KEY" "$CLIENT01_SITE_URL"
+                ;;
+              dgtl360)
+                printf 'CMS_URL=%s\nCMS_WEBSITE_KEY=%s\nSITE_URL=%s\n' \
+                  "$CMS_PUBLIC_URL" "$DGTL360_WEBSITE_KEY" "$DGTL360_SITE_URL"
+                ;;
+              cms-web|cms-worker|cms-migrate) ;;
+              *) echo "Unsupported image matrix target: $MATRIX_TARGET" >&2; exit 2 ;;
+            esac
+            echo 'DGTL_BUILD_ARGS'
+          } >>"$GITHUB_OUTPUT"
+      - id: metadata
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=${{ inputs.deployment_variant || 'production' }}-sha-${{ github.sha }}-run-${{ github.run_id }}-${{ github.run_attempt }}
+      - id: build_local
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          build-args: ${{ steps.build_args.outputs.value }}
+          load: true
+          push: false
+          tags: ${{ steps.image.outputs.local }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          provenance: false
+          sbom: false
+      - name: Scan the local image before publication
+        env:
+          LOCAL_IMAGE: ${{ steps.image.outputs.local }}
+        run: |
+          docker run --rm \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            "$TRIVY_IMAGE" \
+            image --image-src docker --scanners vuln,misconfig,secret \
+            --severity HIGH,CRITICAL --exit-code 1 "$LOCAL_IMAGE"
+      - name: Prepare release evidence directory
+        run: mkdir -p image-digests
+      - name: Generate the scanned image SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ steps.image.outputs.local }}
+          format: spdx-json
+          output-file: image-digests/${{ matrix.name }}.spdx.json
+          syft-version: v1.51.1
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Install the verified Cosign release
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+      - name: Authenticate only after local scanning and inventory complete
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: publish
+        name: Publish only the scanned image as explicit release tags
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_TAGS: ${{ steps.metadata.outputs.tags }}
+          LOCAL_IMAGE: ${{ steps.image.outputs.local }}
+        run: |
+          first_tag=''
+          tag_count=0
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            [[ "$tag" == "${IMAGE_NAME}:"* ]] || {
+              echo "Refusing unexpected publication target: $tag" >&2
+              exit 2
+            }
+            docker image tag "$LOCAL_IMAGE" "$tag"
+            docker image push "$tag"
+            [[ -n "$first_tag" ]] || first_tag="$tag"
+            tag_count=$((tag_count + 1))
+          done <<<"$IMAGE_TAGS"
+          (( tag_count > 0 )) || {
+            echo 'No release image tags were produced.' >&2
+            exit 2
+          }
+          repository_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$first_tag")"
+          digest="${repository_digest##*@}"
+          [[ "$repository_digest" == "${IMAGE_NAME}@sha256:"* && "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo 'Unable to prove the immutable digest of the published image.' >&2
+            exit 1
+          }
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+      - name: Create the signed release-policy predicate
+        env:
+          CLIENT01_SITE_URL: ${{ inputs.client01_site_url || 'https://client01.dgtl.lk' }}
+          CMS_PUBLIC_URL: ${{ inputs.cms_public_url || 'https://cms.dgtl.lk' }}
+          DEPLOYMENT_VARIANT: ${{ inputs.deployment_variant || 'production' }}
+          DGTL360_SITE_URL: ${{ inputs.dgtl360_site_url || 'https://dgtl.lk' }}
+          DOCKER_TARGET: ${{ matrix.target }}
+          GITHUB_REF_VALUE: ${{ github.ref }}
+          GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
+          MATRIX_TARGET: ${{ matrix.name }}
+          SOURCE_GIT_SHA: ${{ github.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          jq -n \
+            --arg client01SiteUrl "$CLIENT01_SITE_URL" \
+            --arg client01WebsiteKey "$CLIENT01_WEBSITE_KEY" \
+            --arg cmsPublicUrl "$CMS_PUBLIC_URL" \
+            --arg deploymentVariant "$DEPLOYMENT_VARIANT" \
+            --arg dgtl360SiteUrl "$DGTL360_SITE_URL" \
+            --arg dgtl360WebsiteKey "$DGTL360_WEBSITE_KEY" \
+            --arg dockerTarget "$DOCKER_TARGET" \
+            --arg matrixTarget "$MATRIX_TARGET" \
+            --arg sourceGitSha "$SOURCE_GIT_SHA" \
+            --arg sourceRepository "$SOURCE_REPOSITORY" \
+            '{
+              schemaVersion: 1,
+              matrixTarget: $matrixTarget,
+              dockerTarget: $dockerTarget,
+              deploymentVariant: $deploymentVariant,
+              cmsPublicUrl: $cmsPublicUrl,
+              client01SiteUrl: $client01SiteUrl,
+              client01WebsiteKey: $client01WebsiteKey,
+              dgtl360SiteUrl: $dgtl360SiteUrl,
+              dgtl360WebsiteKey: $dgtl360WebsiteKey,
+              sourceRepository: $sourceRepository,
+              sourceGitSha: $sourceGitSha
+            }' >"image-digests/${{ matrix.name }}-release-policy.json"
+          jq -n \
+            --arg buildType 'https://dgtl.lk/buildtypes/github-actions/docker/v1' \
+            --arg dockerfile '${{ matrix.dockerfile }}' \
+            --arg dockerTarget "$DOCKER_TARGET" \
+            --arg invocationId "https://github.com/${SOURCE_REPOSITORY}/actions/runs/${GITHUB_RUN_ID_VALUE}" \
+            --arg matrixTarget "$MATRIX_TARGET" \
+            --arg sourceGitSha "$SOURCE_GIT_SHA" \
+            --arg sourceRef "$GITHUB_REF_VALUE" \
+            --arg sourceRepository "$SOURCE_REPOSITORY" \
+            '{
+              buildDefinition: {
+                buildType: $buildType,
+                externalParameters: {
+                  dockerfile: $dockerfile,
+                  dockerTarget: $dockerTarget,
+                  matrixTarget: $matrixTarget,
+                  sourceGitSha: $sourceGitSha,
+                  sourceRef: $sourceRef,
+                  sourceRepository: $sourceRepository
+                },
+                internalParameters: {},
+                resolvedDependencies: [{
+                  uri: ("git+https://github.com/" + $sourceRepository + "@" + $sourceGitSha),
+                  digest: { gitCommit: $sourceGitSha }
+                }]
+              },
+              runDetails: {
+                builder: { id: ("https://github.com/" + $sourceRepository + "/.github/workflows/images.yml@" + $sourceRef) },
+                metadata: { invocationId: $invocationId }
+              }
+            }' >"image-digests/${{ matrix.name }}-provenance.json"
+      - name: Sign provenance, SBOM, and release policy with keyless Sigstore
+        env:
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          MATRIX_TARGET: ${{ matrix.name }}
+        run: |
+          image_reference="${IMAGE_NAME}@${IMAGE_DIGEST}"
+          cosign attest --yes --type slsaprovenance1 \
+            --predicate "image-digests/${MATRIX_TARGET}-provenance.json" \
+            --bundle "image-digests/${MATRIX_TARGET}-provenance.sigstore.json" \
+            "$image_reference"
+          cosign attest --yes --type spdxjson \
+            --predicate "image-digests/${MATRIX_TARGET}.spdx.json" \
+            --bundle "image-digests/${MATRIX_TARGET}-sbom.sigstore.json" \
+            "$image_reference"
+          cosign attest --yes --type https://dgtl.lk/attestations/image-release/v1 \
+            --predicate "image-digests/${MATRIX_TARGET}-release-policy.json" \
+            --bundle "image-digests/${MATRIX_TARGET}-release-policy.sigstore.json" \
+            "$image_reference"
+      - name: Record immutable image reference
+        env:
+          CLIENT01_SITE_URL: ${{ inputs.client01_site_url || 'https://client01.dgtl.lk' }}
+          CMS_PUBLIC_URL: ${{ inputs.cms_public_url || 'https://cms.dgtl.lk' }}
+          DEPLOYMENT_VARIANT: ${{ inputs.deployment_variant || 'production' }}
+          DGTL360_SITE_URL: ${{ inputs.dgtl360_site_url || 'https://dgtl.lk' }}
+          IMAGE_REPOSITORY_PREFIX: ${{ steps.image.outputs.prefix }}
+          SOURCE_GIT_SHA: ${{ github.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p image-digests
+          printf '%s@%s\n' \
+            '${{ steps.image.outputs.name }}' \
+            '${{ steps.publish.outputs.digest }}' \
+            >'image-digests/${{ matrix.name }}.txt'
+          printf 'SOURCE_REPOSITORY=%s\nSOURCE_GIT_SHA=%s\nIMAGE_REPOSITORY_PREFIX=%s\nIMAGE_BUILD_VARIANT=%s\nIMAGE_CMS_PUBLIC_URL=%s\nIMAGE_CLIENT01_SITE_URL=%s\nIMAGE_DGTL360_SITE_URL=%s\nCLIENT01_WEBSITE_KEY=%s\nDGTL360_WEBSITE_KEY=%s\n' \
+            "$SOURCE_REPOSITORY" "$SOURCE_GIT_SHA" "$IMAGE_REPOSITORY_PREFIX" \
+            "$DEPLOYMENT_VARIANT" "$CMS_PUBLIC_URL" "$CLIENT01_SITE_URL" "$DGTL360_SITE_URL" \
+            "$CLIENT01_WEBSITE_KEY" "$DGTL360_WEBSITE_KEY" \
+            >'image-digests/${{ matrix.name }}-release-metadata.env'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digest-${{ inputs.deployment_variant || 'production' }}-${{ matrix.name }}
+          path: image-digests/
+          retention-days: 90
+      - name: Remove the ephemeral release builder
+        if: always()
+        continue-on-error: true
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: |
+          [[ -z "$BUILDER_NAME" ]] || docker buildx rm --force "$BUILDER_NAME"

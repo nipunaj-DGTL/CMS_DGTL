@@ -1,0 +1,11 @@
+* text=auto
+
+# Keep deployment and CI entrypoints executable on Linux hosts.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.mjs text eol=lf
+
+# Do not attempt line-ending conversion for image evidence/assets.
+*.png binary
