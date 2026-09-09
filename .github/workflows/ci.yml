@@ -257,7 +257,7 @@ jobs:
           persist-credentials: false
       - name: Review newly introduced dependencies
         if: github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           allow-ghsas: GHSA-67mh-4wv8-2f99, GHSA-jg8r-5jh2-v2xj
           fail-on-severity: moderate
