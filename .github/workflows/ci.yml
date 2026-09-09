@@ -13,8 +13,9 @@ permissions:
   contents: read
 
 env:
-  # zricethezav/gitleaks v8.30.1, reviewed 2026-09-08.
-  GITLEAKS_IMAGE: docker.io/zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  # zricethezav/gitleaks v8.29.1, reviewed 2026-09-09; v8.30.1 is excluded
+  # because its default rules have a documented false-negative regression.
+  GITLEAKS_IMAGE: docker.io/zricethezav/gitleaks:v8.29.1@sha256:aa036a2f4bdfe3cc3c55fa4326308efabb4a6be498c883c864fd1d0d5585438a
   CMS_ALLOWED_ORIGINS: http://localhost:3101
   CMS_MEDIA_SCAN_MODE: basic
   CMS_MEDIA_STORAGE: local
@@ -65,7 +66,7 @@ jobs:
             --profile tools --profile edge config --quiet
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 11.19.0
+          version: 11.21.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
@@ -123,7 +124,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 11.19.0
+          version: 11.21.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
@@ -171,7 +172,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 11.19.0
+          version: 11.21.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
@@ -228,7 +229,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 11.19.0
+          version: 11.21.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
@@ -267,7 +268,7 @@ jobs:
         run: echo 'GitHub Dependency Review requires paid private-repository security features; the full production lockfile audit below remains mandatory.'
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 11.19.0
+          version: 11.21.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
@@ -281,7 +282,7 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/repo:ro" \
             --workdir /repo \
             "$GITLEAKS_IMAGE" \
-            git --source=/repo --redact --verbose
+            git --redact --verbose /repo
       - name: Filesystem vulnerability and misconfiguration scan
         run: |
           docker run --rm \

@@ -6,7 +6,7 @@ ARG NODE_IMAGE=node:22.22.0-alpine@sha256:e4bf2a82ad0a4037d28035ae71529873c069b1
 FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=${PNPM_HOME}:${PATH}
-RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 WORKDIR /app
 
 FROM base AS dependencies
