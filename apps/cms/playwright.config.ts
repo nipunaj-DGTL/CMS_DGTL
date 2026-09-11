@@ -13,6 +13,8 @@ export default defineConfig({
   testDir: './tests/e2e',
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
+  /* A retry is diagnostic evidence, not a successful CI quality gate. */
+  failOnFlakyTests: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
@@ -35,7 +37,9 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev',
-    reuseExistingServer: true,
-    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    /* Wait for Payload's admin route to compile before starting timed tests. */
+    url: 'http://localhost:3000/admin/login',
+    timeout: 120_000,
   },
 })
