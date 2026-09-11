@@ -58,10 +58,12 @@ if [[ -f "${state_dir}/current.env" ]]; then
   current_project_name="$(release_value "${state_dir}/current.env" COMPOSE_PROJECT_NAME dgtl-platform)"
   current_self_hosted="$(release_value "${state_dir}/current.env" SELF_HOSTED_POSTGRES false)"
   current_edge="$(release_value "${state_dir}/current.env" ENABLE_CADDY false)"
+  current_scope="$(release_value "${state_dir}/current.env" DEPLOYMENT_SCOPE full-stack)"
   if [[ "${current_project_name}" != "${COMPOSE_PROJECT_NAME:-dgtl-platform}" ||
         "${current_self_hosted}" != "${SELF_HOSTED_POSTGRES:-false}" ||
-        "${current_edge}" != "${ENABLE_CADDY:-false}" ]]; then
-    echo "COMPOSE_PROJECT_NAME, SELF_HOSTED_POSTGRES, and ENABLE_CADDY are topology settings; change them only through a separate infrastructure runbook." >&2
+        "${current_edge}" != "${ENABLE_CADDY:-false}" ||
+        "${current_scope}" != "${DEPLOYMENT_SCOPE:-full-stack}" ]]; then
+    echo "COMPOSE_PROJECT_NAME, SELF_HOSTED_POSTGRES, ENABLE_CADDY, and DEPLOYMENT_SCOPE are topology settings; change them only through a separate infrastructure runbook." >&2
     exit 1
   fi
   if [[ "${SELF_HOSTED_POSTGRES:-false}" == "true" ]]; then
@@ -77,7 +79,8 @@ fi
 # writers. A registry outage or missing optional image must fail while the
 # currently healthy application is still available.
 echo "Pulling immutable release images before the maintenance boundary."
-"${COMPOSE[@]}" --profile tools pull cms worker migrate client01 dgtl360
+mapfile -t rollout_services < <(application_services)
+"${COMPOSE[@]}" --profile tools pull "${rollout_services[@]}" migrate
 if [[ "${SELF_HOSTED_POSTGRES:-false}" == "true" ]]; then
   "${COMPOSE[@]}" pull postgres clamav
 fi
@@ -141,12 +144,14 @@ echo "Applying reviewed migrations once with schema push disabled."
 restore_incumbent_on_failure=false
 "${COMPOSE[@]}" --profile tools run --rm --no-deps migrate
 
-echo "Rolling out CMS, then both ready-gated frontends, then exactly one worker."
+echo "Rolling out CMS, optional demo frontends, then exactly one worker."
 "${COMPOSE[@]}" up -d --no-deps cms
 wait_for_service_health cms
-"${COMPOSE[@]}" up -d --no-deps client01 dgtl360
-wait_for_service_health client01
-wait_for_service_health dgtl360
+if demos_enabled; then
+  "${COMPOSE[@]}" up -d --no-deps client01 dgtl360
+  wait_for_service_health client01
+  wait_for_service_health dgtl360
+fi
 incumbent_worker_ids="$("${COMPOSE[@]}" ps --all --quiet worker)"
 if [[ -n "${incumbent_worker_ids}" ]]; then
   "${COMPOSE[@]}" stop worker

@@ -3,6 +3,13 @@
 .npm-cache
 .pnpm-store
 node_modules
+**/node_modules
+**/.next
+.tmp
+**/*.tsbuildinfo
+**/test-results
+**/playwright-report
+**/coverage
 # Never send local credentials to the Docker daemon/build cache.
 **/.env
 **/.env.*

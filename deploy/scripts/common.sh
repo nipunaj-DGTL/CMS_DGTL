@@ -29,6 +29,7 @@ readonly RELEASE_KEYS=(
   DGTL360_ORIGIN
   DGTL360_WEBSITE_KEY
   DGTL360_WWW_HOSTNAME
+  DEPLOYMENT_SCOPE
   ENABLE_CADDY
   HEALTH_TIMEOUT_SECONDS
   IMAGE_BUILD_VARIANT
@@ -208,13 +209,43 @@ acquire_deploy_lock() {
 
 compose_command() {
   COMPOSE=(docker compose --env-file "${RELEASE_FILE}" -f "${DEPLOY_DIR}/compose.prod.yml")
+  if demos_enabled; then
+    COMPOSE+=(-f "${DEPLOY_DIR}/compose.demos.yml")
+  fi
   if [[ "${SELF_HOSTED_POSTGRES:-false}" == "true" ]]; then
     COMPOSE+=(-f "${DEPLOY_DIR}/compose.self-hosted-db.yml")
   fi
 }
 
+# Missing scope means the legacy five-image release. Never silently change an
+# installed deployment's topology when loading its previous manifest.
+demos_enabled() {
+  [[ "${DEPLOYMENT_SCOPE:-full-stack}" == "full-stack" ]]
+}
+
+application_image_keys() {
+  printf '%s\n' CMS_WEB_IMAGE CMS_WORKER_IMAGE CMS_MIGRATE_IMAGE
+  if demos_enabled; then printf '%s\n' CLIENT01_IMAGE DGTL360_IMAGE; fi
+}
+
+application_services() {
+  printf '%s\n' cms worker
+  if demos_enabled; then printf '%s\n' client01 dgtl360; fi
+}
+
 validate_release_settings() {
   local name value
+  if [[ "${DEPLOYMENT_SCOPE:-full-stack}" != "cms-only" && "${DEPLOYMENT_SCOPE:-full-stack}" != "full-stack" ]]; then
+    echo 'DEPLOYMENT_SCOPE must be cms-only or full-stack.' >&2
+    exit 2
+  fi
+  local origins=(CMS_ORIGIN) website_keys=() build_origins=(IMAGE_CMS_PUBLIC_URL) hostnames=(CMS_HOSTNAME)
+  if demos_enabled; then
+    origins+=(CLIENT01_ORIGIN DGTL360_ORIGIN)
+    website_keys+=(CLIENT01_WEBSITE_KEY DGTL360_WEBSITE_KEY)
+    build_origins+=(IMAGE_CLIENT01_SITE_URL IMAGE_DGTL360_SITE_URL)
+    hostnames+=(CLIENT01_HOSTNAME DGTL360_HOSTNAME DGTL360_WWW_HOSTNAME)
+  fi
   for name in SELF_HOSTED_POSTGRES ENABLE_CADDY BACKUP_CONFIRMED OBJECT_STORAGE_CHECKPOINT_CONFIRMED; do
     value="${!name:-false}"
     if [[ "${value}" != "true" && "${value}" != "false" ]]; then
@@ -232,7 +263,7 @@ validate_release_settings() {
     exit 2
   fi
 
-  for name in CMS_ORIGIN CLIENT01_ORIGIN DGTL360_ORIGIN; do
+  for name in "${origins[@]}"; do
     value="${!name:-}"
     if [[ ! "${value}" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
       echo "${name} must be an HTTPS origin without a path." >&2
@@ -240,7 +271,7 @@ validate_release_settings() {
     fi
   done
 
-  for name in CLIENT01_WEBSITE_KEY DGTL360_WEBSITE_KEY; do
+  for name in "${website_keys[@]}"; do
     value="${!name:-}"
     if [[ ! "${value}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
       echo "${name} is missing or invalid." >&2
@@ -269,16 +300,16 @@ validate_release_settings() {
     exit 2
   fi
 
-  for name in IMAGE_CMS_PUBLIC_URL IMAGE_CLIENT01_SITE_URL IMAGE_DGTL360_SITE_URL; do
+  for name in "${build_origins[@]}"; do
     value="${!name:-}"
     if [[ ! "${value}" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
       echo "${name} must be an HTTPS origin without a path." >&2
       exit 2
     fi
   done
-  if [[ "${IMAGE_CMS_PUBLIC_URL}" != "${CMS_ORIGIN}" ||
-        "${IMAGE_CLIENT01_SITE_URL}" != "${CLIENT01_ORIGIN}" ||
-        "${IMAGE_DGTL360_SITE_URL}" != "${DGTL360_ORIGIN}" ]]; then
+  if [[ "${IMAGE_CMS_PUBLIC_URL}" != "${CMS_ORIGIN}" ]] ||
+     { demos_enabled && [[ "${IMAGE_CLIENT01_SITE_URL}" != "${CLIENT01_ORIGIN}" ||
+        "${IMAGE_DGTL360_SITE_URL}" != "${DGTL360_ORIGIN}" ]]; }; then
     echo "Frontend image build origins must exactly match the deployed public origins." >&2
     exit 2
   fi
@@ -295,7 +326,7 @@ validate_release_settings() {
   fi
 
   if [[ "${ENABLE_CADDY:-false}" == "true" ]]; then
-    for name in CMS_HOSTNAME CLIENT01_HOSTNAME DGTL360_HOSTNAME DGTL360_WWW_HOSTNAME; do
+    for name in "${hostnames[@]}"; do
       value="${!name:-}"
       if [[ ! "${value}" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]]; then
         echo "${name} is missing or invalid." >&2
@@ -367,7 +398,9 @@ validate_installed_tooling() {
 validate_digest_images() {
   local expected_name name repository value
   validate_release_settings
-  for name in CMS_WEB_IMAGE CMS_WORKER_IMAGE CMS_MIGRATE_IMAGE CLIENT01_IMAGE DGTL360_IMAGE; do
+  local image_keys
+  mapfile -t image_keys < <(application_image_keys)
+  for name in "${image_keys[@]}"; do
     value="${!name:-}"
     if [[ ! "${value}" =~ @sha256:[0-9a-f]{64}$ ]]; then
       echo "${name} must be an immutable image reference ending in @sha256:<64 lowercase hex characters>." >&2
@@ -442,7 +475,9 @@ wait_for_service_health() {
 
 wait_for_compose_health() {
   local service
-  for service in cms client01 dgtl360 worker; do
+  local services
+  mapfile -t services < <(application_services)
+  for service in "${services[@]}"; do
     wait_for_service_health "${service}"
   done
 }

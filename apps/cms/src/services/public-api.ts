@@ -163,6 +163,19 @@ export const mapBlock = (block: GenericDocument, websiteKey: string): PageBlock 
     case 'teamShowcase':
       mapped = {
         ...base,
+        members: (block.members ?? []).map((member: GenericDocument) => {
+          let linkedin: string | undefined
+          try {
+            const url = new URL(member.linkedin)
+            if (url.protocol === 'https:' && ['linkedin.com', 'www.linkedin.com'].includes(url.hostname) && !url.username && !url.password) linkedin = url.href
+          } catch { /* Legacy or empty links are omitted. */ }
+          return {
+            ...(omitNullishValues(member) as GenericDocument),
+            description: member.description ?? '',
+            image: mapMedia(member.image, websiteKey),
+            linkedin,
+          }
+        }),
         portraitImage: mapMedia(block.portraitImage, websiteKey),
         profileImage: mapMedia(block.profileImage, websiteKey),
       }

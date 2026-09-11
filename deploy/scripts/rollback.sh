@@ -58,12 +58,15 @@ require_unchanged_active_setting() {
 require_unchanged_active_setting COMPOSE_PROJECT_NAME dgtl-platform
 require_unchanged_active_setting SELF_HOSTED_POSTGRES false
 require_unchanged_active_setting ENABLE_CADDY false
+require_unchanged_active_setting DEPLOYMENT_SCOPE full-stack
 require_unchanged_active_setting SECRETS_DIR
 require_unchanged_active_setting CMS_ORIGIN
-require_unchanged_active_setting CLIENT01_ORIGIN
-require_unchanged_active_setting DGTL360_ORIGIN
-require_unchanged_active_setting CLIENT01_WEBSITE_KEY
-require_unchanged_active_setting DGTL360_WEBSITE_KEY
+if demos_enabled; then
+  require_unchanged_active_setting CLIENT01_ORIGIN
+  require_unchanged_active_setting DGTL360_ORIGIN
+  require_unchanged_active_setting CLIENT01_WEBSITE_KEY
+  require_unchanged_active_setting DGTL360_WEBSITE_KEY
+fi
 require_unchanged_active_setting IMAGE_BUILD_VARIANT
 
 # The application images roll back, but the live database, object storage, and
@@ -85,10 +88,10 @@ if [[ "${ENABLE_CADDY:-false}" == "true" ]]; then
     CADDY_IMAGE
     ACME_EMAIL
     CMS_HOSTNAME
-    CLIENT01_HOSTNAME
-    DGTL360_HOSTNAME
-    DGTL360_WWW_HOSTNAME
   )
+  if demos_enabled; then
+    preserved_keys+=(CLIENT01_HOSTNAME DGTL360_HOSTNAME DGTL360_WWW_HOSTNAME)
+  fi
 fi
 declare -A preserved_values=()
 declare -A seen_preserved_keys=()
@@ -122,7 +125,8 @@ chmod 600 -- "${rollback_state_manifest}"
 (load_release "${rollback_state_manifest}"; validate_digest_images; validate_tooling_binding)
 
 "${COMPOSE[@]}" --profile tools --profile edge config --quiet
-"${COMPOSE[@]}" pull cms worker client01 dgtl360
+mapfile -t rollback_services < <(application_services)
+"${COMPOSE[@]}" pull "${rollback_services[@]}"
 echo "Rolling back application images without recreating PostgreSQL, ClamAV, or the edge proxy."
 incumbent_worker_ids="$("${COMPOSE[@]}" ps --all --quiet worker)"
 if [[ -n "${incumbent_worker_ids}" ]]; then
@@ -130,9 +134,11 @@ if [[ -n "${incumbent_worker_ids}" ]]; then
 fi
 "${COMPOSE[@]}" up -d --no-deps cms
 wait_for_service_health cms
-"${COMPOSE[@]}" up -d --no-deps client01 dgtl360
-wait_for_service_health client01
-wait_for_service_health dgtl360
+if demos_enabled; then
+  "${COMPOSE[@]}" up -d --no-deps client01 dgtl360
+  wait_for_service_health client01
+  wait_for_service_health dgtl360
+fi
 incumbent_worker_ids="$("${COMPOSE[@]}" ps --all --quiet worker)"
 if [[ -n "${incumbent_worker_ids}" ]]; then
   "${COMPOSE[@]}" stop worker

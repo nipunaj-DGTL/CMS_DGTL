@@ -21,6 +21,7 @@ coverage/
 /deploy/state/
 /.backups/
 /.qa/
+/qa-evidence/
 test-results/
 playwright-report/
 blob-report/

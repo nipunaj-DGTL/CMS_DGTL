@@ -234,3 +234,30 @@
     animation: none;
   }
 }
+
+.roster { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.portrait span { left: .4rem; right: .4rem; text-align: left; line-height: 1.4; font-size: 10px; padding: 6px; }
+.placeholder { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(145deg, #31505a, #111a23); color: #dce9e7; }
+.placeholder strong { font: 500 clamp(2rem, 5vw, 5rem)/1 var(--font-display); letter-spacing: -.05em; }
+.profileImage .placeholder { padding-bottom: 22%; }
+.profileImage .placeholder strong { font-size: clamp(6rem, 16vw, 14rem); opacity: .55; }
+.profileCopy h3 { font-size: clamp(2rem, 3.5vw, 4rem); line-height: 1; }
+.profileCopy span { max-width: 46ch; font-family: var(--font-mono), monospace; font-size: 15px; }
+.linkedin { display: inline-flex; min-height: 44px; align-items: center; margin-top: 20px; font: 600 11px/1.4 var(--font-mono), monospace; border-bottom: 1px solid #ffffff80; }
+.profile:focus-visible { outline: 2px solid #f1682f; outline-offset: 4px; }
+
+.section > * { min-width: 0; }
+@media (max-width: 900px), (max-height: 700px) {
+  .profile { min-height: 0; }
+  .hasSelection .profile { display: flex; flex-direction: column; background: #111a23; }
+  .profileImage, .hasSelection .profileImage { position: relative; inset: auto; min-height: 0; height: clamp(240px, 55vw, 440px); flex-shrink: 0; }
+  .profileCopy { position: relative; inset: auto; padding: 24px; }
+  .profileCopy h3 { overflow-wrap: anywhere; }
+  .intro { min-height: 0; padding: 24px 0; }
+  .intro h2 { font-size: clamp(3rem, 10vw, 5rem); }
+}
+@media (max-width: 400px) {
+  .portrait, .portrait:nth-child(5n + 1), .portrait:nth-child(5n + 4) { min-height: 140px; }
+  .portrait span { font-size: 9px; overflow-wrap: anywhere; }
+  .profileCopy { padding: 20px 16px; }
+}

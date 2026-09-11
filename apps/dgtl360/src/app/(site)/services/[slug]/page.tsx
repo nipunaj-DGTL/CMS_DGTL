@@ -7,6 +7,7 @@ import { services as fallbackServices } from '../../../../content/local/services
 import { ServiceDetailPage } from '../../../../features/services/components/detail/service-detail-page';
 import {
   getCMSPage,
+  getCMSNavigation,
   getCMSServicePages,
   getCMSSiteSettings,
   getCMSWebsite,
@@ -63,11 +64,12 @@ export default async function ServicePage({ params }: Props) {
   const { slug } = await params;
   const draft = await draftMode();
   const previewToken = draft.isEnabled ? (await cookies()).get('dgtl-preview-token')?.value : undefined;
-  const [{ page, service }, cmsPages, settings, website] = await Promise.all([
+  const [{ page, service }, cmsPages, settings, website, footerNavigation] = await Promise.all([
     loadService(slug, previewToken),
     getCMSServicePages(),
     getCMSSiteSettings(),
     getCMSWebsite(),
+    getCMSNavigation('footer'),
   ]);
   if (website?.status === 'maintenance' || settings?.maintenanceEnabled) {
     return <MaintenanceScreen message={settings?.maintenanceMessage} name={settings?.displayName ?? website?.displayName ?? 'DGTL 360'} />;
@@ -92,6 +94,7 @@ export default async function ServicePage({ params }: Props) {
       service={service}
       services={reelServices}
       settings={settings ?? undefined}
+      footerNavigation={footerNavigation?.items}
     />
   );
 }

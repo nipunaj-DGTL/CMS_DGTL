@@ -1,96 +1,72 @@
 .section {
-  position: relative;
-  display: grid;
+  height: 100svh;
   min-height: 100svh;
   overflow: hidden;
-  place-items: center;
-  isolation: isolate;
-  background: #010604;
+  background: #07090e;
+  color: #fffaf1;
 }
-
-.section::before {
+.stage {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  perspective: 900px;
+}
+.ambient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 25% 40%, #23417044, transparent 60%),
+    radial-gradient(ellipse at 80% 70%, #61284244, transparent 50%);
+}
+.letters { position: absolute; inset: 0; }
+.letter {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: clamp(64px, 9vw, 140px);
+  height: clamp(64px, 9vw, 140px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color);
+  font: 750 clamp(52px, 7vw, 115px)/1.25 "Sinhala Sangam MN", "Tamil Sangam MN", sans-serif;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.sculpture {
+  display: inline-block;
+  transform: perspective(600px) rotateX(12deg) rotateY(-16deg);
+  text-shadow: 1px 1px 0 #414658, 2px 2px 0 #414658, 3px 3px 0 #333746,
+    4px 4px 0 #333746, 5px 5px 0 #292d38, 7px 7px 0 #292d38,
+    9px 9px 0 #20232c, 12px 16px 16px #0009;
+}
+.letter:hover .sculpture, .letter:focus-visible .sculpture { filter: brightness(1.18); }
+.letter:focus-visible { outline: 2px solid #ffd43b; outline-offset: 4px; }
+.grid {
   position: absolute;
   z-index: 1;
   inset: 0;
-  content: '';
   pointer-events: none;
-  background:
-    radial-gradient(ellipse at center, transparent 22%, rgba(0, 0, 0, 0.66) 100%),
-    repeating-linear-gradient(180deg, rgba(0, 255, 88, 0.018) 0, rgba(0, 255, 88, 0.018) 1px, transparent 1px, transparent 3px);
+  opacity: .35;
+  background-image: linear-gradient(#b9caff14 1px, transparent 1px),
+    linear-gradient(90deg, #b9caff14 1px, transparent 1px);
+  background-size: 48px 48px;
 }
-
-.rain {
+.logo {
   position: absolute;
-  z-index: -1;
-  inset: 0;
-  overflow: hidden;
-  opacity: 0.7;
-  mask-image: linear-gradient(180deg, #000, transparent 88%);
-}
-
-.rain span {
-  position: absolute;
-  top: -70%;
-  left: var(--column-left);
-  width: 1.5rem;
-  white-space: pre-wrap;
-  color: #10a84e;
-  font: 500 clamp(0.8rem, 1.1vw, 1.3rem)/1.6 var(--font-mono), monospace;
-  text-shadow: 0 0 10px rgba(66,255,115,.35);
-  writing-mode: vertical-rl;
-  animation: fall var(--column-duration) linear var(--column-delay) infinite, flicker 2.3s steps(4, end) infinite;
-  animation-play-state: paused;
-}
-
-.section[data-active='true'] .rain span {
-  animation-play-state: running;
-}
-
-.rain span:nth-child(3n) {
-  color: #064e2a;
-  opacity: 0.6;
-}
-
-.rain span:nth-child(5n) {
-  color: #8afcad;
-}
-
-.wordmark {
-  position: relative;
   z-index: 2;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   margin: 0;
-  color: #dcfff2;
-  font-size: clamp(9rem, 30vw, 34rem);
-  font-weight: 850;
-  line-height: 0.7;
-  letter-spacing: -0.09em;
-  white-space: nowrap;
+  font: 850 29vw/.8 var(--font-interface), sans-serif;
+  letter-spacing: -.09em;
+  pointer-events: none;
+  text-shadow: 0 6px 40px #07090e, 0 20px 90px #07090e;
 }
-
-@keyframes fall {
-  to { transform: translateY(190vh); }
-}
-
-@keyframes flicker {
-  0%, 100% { opacity: 0.5; }
-  40% { opacity: 0.9; }
-  65% { opacity: 0.35; }
-}
-
-@media (max-width: 700px) {
-  .rain span:nth-child(even) {
-    display: none;
-  }
-
-  .wordmark {
-    font-size: 38vw;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rain span {
-    top: var(--column-static-y);
-    animation: none;
-    transform: translateX(-50%);
-  }
+@media (max-width: 400px) {
+  .letter { width: 52px; height: 52px; font-size: 44px; }
 }

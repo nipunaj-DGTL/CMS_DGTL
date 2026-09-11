@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { EnquirySection } from '../../../enquiry/components/enquiry-section';
-import type { CMSSiteSettings } from '../../../../lib/cms';
+import type { CMSNavigationItem, CMSSiteSettings } from '../../../../lib/cms';
 import type { Service } from '../../types/service.types';
 import { ServiceCapabilityList } from './service-capability-list.client';
 import { ServiceCinemaReel } from './service-cinema-reel';
-import { ServiceDetailFooter } from './service-detail-footer';
+import { SiteFooter } from '../../../../components/layout/site-footer';
 import { ServiceHeroImage } from './service-hero-image';
 import { ServiceRevealController } from './service-reveal-controller.client';
 import styles from '../../service-detail.module.css';
@@ -16,12 +16,14 @@ export function ServiceDetailPage({
   service,
   services,
   settings,
+  footerNavigation,
 }: {
   fontFamily?: 'brand' | 'sans' | 'serif';
   isPreview?: boolean;
   service: Service;
   services: Service[];
   settings?: CMSSiteSettings;
+  footerNavigation?: CMSNavigationItem[];
 }) {
   const brandName = settings?.displayName || 'DGTL 360';
   return (
@@ -73,10 +75,7 @@ export function ServiceDetailPage({
       </main>
 
       <ServiceCinemaReel services={services} currentSlug={service.slug} labels={settings?.serviceContent} />
-      <ServiceDetailFooter
-        backLabel={settings?.serviceContent?.backLabel ?? undefined}
-        brandName={brandName}
-      />
+      <SiteFooter settings={settings} navigation={footerNavigation} backToTop="#" />
     </div>
   );
 }

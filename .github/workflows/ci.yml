@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, master, 'codex/**']
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -44,6 +44,8 @@ jobs:
           persist-credentials: false
       - name: Enforce immutable GitHub Action references
         run: node .github/scripts/validate-action-pins.mjs
+      - name: Check CMS-only and optional demo release contracts
+        run: node --test .github/scripts/release-scope.test.mjs
       - name: Validate release shell and rendered Compose model
         env:
           CADDY_IMAGE: docker.io/library/caddy@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -54,6 +56,9 @@ jobs:
           CMS_WORKER_IMAGE: ghcr.io/example/dgtl-cms-worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           DGTL360_IMAGE: ghcr.io/example/dgtl360@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           POSTGRES_IMAGE: docker.io/library/postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CLIENT01_HOSTNAME: client01.example.test
+          DGTL360_HOSTNAME: dgtl.example.test
+          DGTL360_WWW_HOSTNAME: www.dgtl.example.test
         run: |
           for example in deploy/secrets/*.env.example; do
             install -m 600 "$example" "${example%.example}"
@@ -62,6 +67,11 @@ jobs:
           bash .github/scripts/test-release-parser.sh
           docker compose \
             -f deploy/compose.prod.yml \
+            -f deploy/compose.self-hosted-db.yml \
+            --profile tools --profile edge config --quiet
+          docker compose \
+            -f deploy/compose.prod.yml \
+            -f deploy/compose.demos.yml \
             -f deploy/compose.self-hosted-db.yml \
             --profile tools --profile edge config --quiet
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
@@ -246,6 +256,83 @@ jobs:
           name: playwright-report
           path: apps/cms/playwright-report
           if-no-files-found: ignore
+          retention-days: 14
+
+  cms_containers:
+    name: CMS-only Docker build and migration boot
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 # 16-alpine, 2026-08-16
+        env:
+          POSTGRES_DB: dgtl_cms_containers
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dgtl_cms_containers"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CMS_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dgtl_cms_containers
+      CMS_PUBLIC_URL: http://127.0.0.1:3200
+      CMS_MEDIA_ACCESS_KEY_ID: ci-build-placeholder
+      CMS_MEDIA_BUCKET: ci-build-placeholder
+      CMS_MEDIA_ENDPOINT: http://127.0.0.1:9000
+      CMS_MEDIA_SECRET_ACCESS_KEY: ci-build-placeholder
+      CMS_MEDIA_STORAGE: s3
+      CMS_MEDIA_SCAN_MODE: clamav
+      CLAMAV_HOST: 127.0.0.1
+      CMS_EMAIL_PROVIDER: resend
+      CMS_EMAIL_FROM_ADDRESS: cms@example.test
+      CMS_EMAIL_FROM_NAME: DGTL CMS CI
+      RESEND_API_KEY: ci-build-placeholder
+      NODE_ENV: production
+      PAYLOAD_DB_PUSH: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Build all three CMS targets without demo website source
+        run: |
+          for target in web worker migrate; do
+            docker build --file apps/cms/Dockerfile --target "$target" --tag "dgtl-cms-ci:$target" .
+          done
+      - name: Migrate a clean database and prove container health
+        run: |
+          runtime_env=()
+          for key in CMS_DATABASE_URL CMS_PUBLIC_URL PAYLOAD_SECRET PAYLOAD_DB_PUSH NODE_ENV \
+            CMS_PREVIEW_SIGNING_SECRET CMS_WEBSITE_READ_TOKENS CMS_REVALIDATION_SECRETS \
+            CMS_MEDIA_ACCESS_KEY_ID CMS_MEDIA_BUCKET CMS_MEDIA_ENDPOINT CMS_MEDIA_SECRET_ACCESS_KEY \
+            CMS_MEDIA_STORAGE CMS_MEDIA_SCAN_MODE CLAMAV_HOST CMS_EMAIL_PROVIDER \
+            CMS_EMAIL_FROM_ADDRESS CMS_EMAIL_FROM_NAME RESEND_API_KEY; do
+            runtime_env+=(--env "$key")
+          done
+          docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate
+          docker run --detach --name cms-ci-web --network host "${runtime_env[@]}" --env PORT=3200 dgtl-cms-ci:web
+          docker run --detach --name cms-ci-worker --network host "${runtime_env[@]}" dgtl-cms-ci:worker
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3200/api/health >/dev/null && \
+               curl --fail --silent http://127.0.0.1:3001/health >/dev/null; then
+              curl --fail --silent http://127.0.0.1:3200/admin/login >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Capture Docker runtime evidence
+        if: always()
+        run: |
+          mkdir -p container-evidence
+          docker logs cms-ci-web >container-evidence/cms.log 2>&1 || true
+          docker logs cms-ci-worker >container-evidence/worker.log 2>&1 || true
+          docker ps --all >container-evidence/containers.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: cms-container-evidence
+          path: container-evidence/
           retention-days: 14
 
   security:

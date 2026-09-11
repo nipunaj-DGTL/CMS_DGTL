@@ -1,0 +1,33 @@
+# CMS images must not package demo website source, local tools, or credentials.
+# Dockerfile-specific ignore rules replace the root .dockerignore.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!apps/
+!apps/cms/
+!apps/cms/**
+!apps/website/
+!apps/website/package.json
+!apps/dgtl360/
+!apps/dgtl360/package.json
+!packages/
+!packages/content-contracts/
+!packages/content-contracts/**
+!packages/cms-client/
+!packages/cms-client/package.json
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
+**/*.log
+**/*.tsbuildinfo
+**/coverage
+**/test-results
+**/playwright-report
+apps/cms/media
+# One-time developer importer reads DGTL360 source/assets and is not runtime code.
+apps/cms/src/scripts/upgrade-dgtl360-v2.ts

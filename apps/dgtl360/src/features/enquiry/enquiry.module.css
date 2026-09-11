@@ -146,15 +146,6 @@
   letter-spacing: 0.1em;
 }
 
-.address .address-line {
-  display: inline;
-  margin: 0;
-  color: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-}
-
 .compact {
   min-height: auto;
   padding: clamp(2rem, 3vw, 3.5rem);
@@ -334,37 +325,6 @@
   }
 }
 
-@media (min-width: 901px) and (min-height: 800px) {
-  .section:not(.compact) {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding-block: clamp(4rem, 7vh, 6rem);
-  }
-
-  .section:not(.compact) h2 {
-    margin-block: clamp(.8rem, 1.8vh, 1.4rem);
-    font-size: clamp(3.4rem, min(7vw, 9vh), 7.8rem);
-  }
-
-  .section:not(.compact) .form {
-    margin-top: clamp(1.5rem, 3vh, 2.5rem);
-    gap-block: clamp(.85rem, 1.8vh, 1.4rem);
-  }
-
-  .section:not(.compact) .form textarea {
-    min-height: clamp(4rem, 8vh, 6rem);
-  }
-
-  .section:not(.compact) .form button {
-    min-height: clamp(3.8rem, 7vh, 4.6rem);
-  }
-
-  .section:not(.compact) .email {
-    margin-top: clamp(1.25rem, 2.5vh, 2rem);
-  }
-}
-
 @media (max-width: 700px) {
   .section h2 {
     font-size: clamp(3.3rem, 16vw, 5.8rem);
@@ -383,3 +343,237 @@
     padding-inline: 18px;
   }
 }
+
+/* Homepage contact: a centered composition with a compact form surface. */
+.section:not(.compact) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(7rem, 12vh, 9rem) var(--page-gutter) 4rem;
+  background: radial-gradient(ellipse at 50% 35%, #102024 0, #080d10 42%, #05070a 75%);
+  scroll-margin-top: 0;
+}
+
+.section:not(.compact) .kicker {
+  margin: 0;
+  color: var(--color-cyan);
+}
+
+.section:not(.compact) h2 {
+  max-width: 22ch;
+  margin: 1.1rem auto;
+  font-size: clamp(2.5rem, 4.6vw, 4.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.section:not(.compact) .copy {
+  max-width: 58ch;
+  margin: 0 auto;
+  font-family: var(--font-interface), system-ui, sans-serif;
+  font-size: clamp(.9rem, 1.05vw, 1rem);
+  line-height: 1.65;
+  text-align: center;
+}
+
+.section:not(.compact) .form {
+  width: min(100%, 760px);
+  max-width: none;
+  margin: 2rem auto 0;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  gap: 1.2rem 1.25rem;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 20px;
+  background: rgba(255,255,255,.025);
+  box-shadow: 0 20px 60px rgba(0,0,0,.16);
+}
+
+.section:not(.compact) .form label {
+  min-width: 0;
+  gap: .6rem;
+}
+
+.section:not(.compact) .form span {
+  color: rgba(243,241,237,.7);
+  font-size: .62rem;
+  letter-spacing: .08em;
+}
+
+.section:not(.compact) .form input,
+.section:not(.compact) .form textarea {
+  min-height: 44px;
+  padding: .75rem .9rem;
+  border: 1px solid rgba(255,255,255,.17);
+  border-radius: 8px;
+  background: rgba(0,0,0,.2);
+  color: var(--color-fg);
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.section:not(.compact) .form textarea {
+  min-height: 100px;
+}
+
+.section:not(.compact) .form input:focus,
+.section:not(.compact) .form textarea:focus {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 0 3px rgba(17,174,202,.15);
+}
+
+.section:not(.compact) .form button {
+  width: auto;
+  min-width: 170px;
+  min-height: 44px;
+  justify-self: center;
+  margin-top: .25rem;
+  padding: .8rem 1.4rem;
+  border: 1px solid #f3f1ed;
+  border-radius: 999px;
+  background: #f3f1ed;
+  color: #080d10;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  box-shadow: none;
+}
+
+.section:not(.compact) .form button:hover:not(:disabled) {
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+}
+
+.section:not(.compact) .form button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.section:not(.compact) .form button:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 4px;
+}
+
+.section:not(.compact) .formStatus {
+  width: min(100%, 760px);
+  margin: .75rem auto 0;
+  text-align: center;
+}
+
+.section:not(.compact) .formStatus:empty {
+  display: none;
+}
+
+.section:not(.compact) .email {
+  margin-top: 1.75rem;
+}
+
+.section:not(.compact) .address {
+  max-width: none;
+  margin-top: 1rem;
+  text-align: center;
+  font-size: .72rem;
+}
+
+@media (max-width: 700px) {
+  .section:not(.compact) .form {
+    gap: 1rem;
+    border-radius: 14px;
+  }
+}
+
+/* Distinct form and information panels for the service contact area. */
+.splitContact.compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding: clamp(1rem, 2vw, 1.75rem);
+  background: #080b0d;
+}
+
+.formPanel,
+.detailsPanel {
+  min-width: 0;
+  padding: clamp(1.25rem, 2.4vw, 2rem);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 16px;
+}
+
+.formPanel { background: #0d1215; }
+.detailsPanel { background: #070a0c; }
+
+.splitContact.compact h2 {
+  max-width: 15ch;
+  margin: .85rem 0 1rem;
+  font-size: clamp(1.6rem, 2.3vw, 2.25rem);
+  line-height: 1.2;
+}
+
+.splitContact.compact .kicker {
+  color: var(--service-accent, var(--color-cyan));
+}
+
+.splitContact.compact .form,
+.splitContact.compact .formStatus {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.splitContact.compact .form {
+  margin-top: 1.5rem;
+  gap: 1rem;
+}
+
+.splitContact.compact .form input,
+.splitContact.compact .form textarea {
+  min-height: 44px;
+  padding: .65rem .7rem;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  background: #070a0c;
+  font-size: 16px;
+}
+
+.splitContact.compact .form textarea { min-height: 96px; }
+.splitContact.compact .form button {
+  width: auto;
+  min-height: 44px;
+  padding: .75rem 1.2rem;
+  border: 1px solid #f3f1ed;
+  background: #f3f1ed;
+  box-shadow: none;
+}
+
+.splitContact.compact .form button:hover {
+  background: #fff;
+  border-color: #fff;
+}
+
+.splitContact.compact .copy {
+  color: rgba(255,255,255,.7);
+  font-size: .88rem;
+}
+
+.splitContact.compact .email {
+  margin-top: 1.25rem;
+  font-size: .75rem;
+}
+
+.splitContact.compact .address {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255,255,255,.12);
+  font-size: .75rem;
+}
+
+/* The service sidebar becomes full-width at the tablet breakpoint. */
+@media (min-width: 701px) and (max-width: 1000px) {
+  .splitContact.compact {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.address-line { display: block; }

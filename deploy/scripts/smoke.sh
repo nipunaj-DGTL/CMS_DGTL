@@ -25,6 +25,8 @@ check_status() {
 }
 
 check_json "${CMS_ORIGIN:?CMS_ORIGIN is required}/api/health" '"status":"healthy"'
+check_status "${CMS_ORIGIN}/admin/login"
+if demos_enabled; then
 check_json "${CLIENT01_ORIGIN:?CLIENT01_ORIGIN is required}/api/health" '"status":"healthy"'
 check_json "${CLIENT01_ORIGIN}/api/ready" '"status":"ready"'
 check_json "${CLIENT01_ORIGIN}/api/ready" "\"websiteKey\":\"${CLIENT01_WEBSITE_KEY:?CLIENT01_WEBSITE_KEY is required}\""
@@ -33,6 +35,7 @@ check_json "${DGTL360_ORIGIN}/api/ready" '"status":"ready"'
 check_json "${DGTL360_ORIGIN}/api/ready" "\"websiteKey\":\"${DGTL360_WEBSITE_KEY:?DGTL360_WEBSITE_KEY is required}\""
 check_status "${CLIENT01_ORIGIN}/"
 check_status "${DGTL360_ORIGIN}/"
+fi
 
 # A root-only CI/server environment may supply these values for a stronger
 # binding check. They are intentionally not stored in the release manifest.

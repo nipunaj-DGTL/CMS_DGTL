@@ -50,6 +50,7 @@ export const pageBlockSchema = z.discriminatedUnion('blockType', [
   blockBase.extend({
     anchor: z.string().optional(),
     blockType: z.literal('companyOverview'),
+    tagline: z.string().optional(),
     capabilities: z.array(z.object({ label: z.string() })).max(20),
     heading: z.string(),
     lead: z.string(),
@@ -67,11 +68,16 @@ export const pageBlockSchema = z.discriminatedUnion('blockType', [
   blockBase.extend({
     anchor: z.string().optional(),
     blockType: z.literal('teamShowcase'),
+    backLabel: z.string().optional(),
+    profileLinkLabel: z.string().optional(),
     heading: z.string(),
     instruction: z.string(),
     kicker: z.string(),
     members: z.array(z.object({
-      description: z.string(),
+      description: z.string().default(''),
+      name: z.string().optional(),
+      image: mediaSchema.nullable().optional(),
+      linkedin: z.string().optional(),
       number: z.string(),
       portraitPosition: z.string().optional(),
       profilePosition: z.string().optional(),

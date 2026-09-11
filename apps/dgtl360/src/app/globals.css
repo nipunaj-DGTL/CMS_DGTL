@@ -78,10 +78,14 @@ textarea {
 }
 
 [data-cms-font='sans'] {
+  --font-display: Arial, Helvetica, sans-serif;
+  --font-interface: Arial, Helvetica, sans-serif;
   font-family: Arial, Helvetica, sans-serif;
 }
 
 [data-cms-font='serif'] {
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-interface: Georgia, 'Times New Roman', serif;
   font-family: Georgia, 'Times New Roman', serif;
 }
 
@@ -163,12 +167,19 @@ textarea {
 .home-section-slides > section:nth-child(4) { z-index: 4; }
 .home-section-slides > section:nth-child(5) { z-index: 5; }
 
-@media (max-width: 680px) {
+@media (max-width: 1000px), (max-height: 800px) {
   .home-section-slides > section {
     position: relative;
     top: auto;
   }
 }
+
+/* New design: the scroll-driven hero must not inherit sticky slide clipping. */
+.home-section-slides > section#top { position: relative; overflow: visible; }
+img, video, canvas { max-width: 100%; }
+input, textarea, select { min-width: 0; max-width: 100%; }
+section[id] { scroll-margin-top: 80px; }
+@media (pointer: coarse) { input, textarea, select { font-size: 16px; } }
 
 @media (prefers-reduced-motion: reduce) {
   html {

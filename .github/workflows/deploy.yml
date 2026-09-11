@@ -158,7 +158,8 @@ jobs:
             --certificate-github-workflow-repository "$SOURCE_REPOSITORY"
             --certificate-github-workflow-sha "$SOURCE_GIT_SHA"
           )
-          for image_variable in CMS_WEB_IMAGE CMS_WORKER_IMAGE CMS_MIGRATE_IMAGE CLIENT01_IMAGE DGTL360_IMAGE; do
+          mapfile -t image_variables < <(application_image_keys)
+          for image_variable in "${image_variables[@]}"; do
             image="${!image_variable}"
             cosign verify-attestation "${cosign_identity[@]}" \
               --type slsaprovenance1 "$image" >/dev/null
@@ -175,12 +176,13 @@ jobs:
             image_name="${image%@sha256:*}"
             image_digest="${image##*@sha256:}"
             jq -e \
-              --arg client01SiteUrl "$IMAGE_CLIENT01_SITE_URL" \
-              --arg client01WebsiteKey "$CLIENT01_WEBSITE_KEY" \
+              --arg client01SiteUrl "${IMAGE_CLIENT01_SITE_URL:-}" \
+              --arg client01WebsiteKey "${CLIENT01_WEBSITE_KEY:-}" \
               --arg cmsPublicUrl "$IMAGE_CMS_PUBLIC_URL" \
               --arg deploymentVariant "$IMAGE_BUILD_VARIANT" \
-              --arg dgtl360SiteUrl "$IMAGE_DGTL360_SITE_URL" \
-              --arg dgtl360WebsiteKey "$DGTL360_WEBSITE_KEY" \
+              --arg deploymentScope "${DEPLOYMENT_SCOPE:-full-stack}" \
+              --arg dgtl360SiteUrl "${IMAGE_DGTL360_SITE_URL:-}" \
+              --arg dgtl360WebsiteKey "${DGTL360_WEBSITE_KEY:-}" \
               --arg dockerTarget "${expected_docker_targets[$image_variable]}" \
               --arg imageDigest "$image_digest" \
               --arg imageName "$image_name" \
@@ -196,11 +198,13 @@ jobs:
                 .predicate.matrixTarget == $matrixTarget and
                 .predicate.dockerTarget == $dockerTarget and
                 .predicate.deploymentVariant == $deploymentVariant and
+                (.predicate.deploymentScope // "full-stack") == $deploymentScope and
                 .predicate.cmsPublicUrl == $cmsPublicUrl and
+                ($deploymentScope == "cms-only" or (
                 .predicate.client01SiteUrl == $client01SiteUrl and
                 .predicate.client01WebsiteKey == $client01WebsiteKey and
                 .predicate.dgtl360SiteUrl == $dgtl360SiteUrl and
-                .predicate.dgtl360WebsiteKey == $dgtl360WebsiteKey and
+                .predicate.dgtl360WebsiteKey == $dgtl360WebsiteKey)) and
                 .predicate.sourceRepository == $sourceRepository and
                 .predicate.sourceGitSha == $sourceGitSha)' \
               "$policy_statements" >/dev/null || {

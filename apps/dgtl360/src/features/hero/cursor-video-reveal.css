@@ -1,0 +1,51 @@
+[data-cursor-physics-root] .field-v2-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+[data-cursor-title-surface] {
+  display: inline-block;
+  transform:
+    perspective(1100px)
+    translate3d(var(--cursor-title-x, 0), var(--cursor-title-y, 0), 0)
+    rotateX(var(--cursor-title-tilt-x, 0))
+    rotateY(var(--cursor-title-tilt-y, 0))
+    skewX(var(--cursor-title-skew, 0));
+  transition: transform 90ms linear;
+  will-change: transform;
+}
+
+[data-cursor-subtitle-surface] {
+  display: inline-block;
+  transform: translate3d(var(--cursor-subtitle-x, 0), var(--cursor-subtitle-y, 0), 0);
+  transition: transform 120ms linear;
+  will-change: transform;
+}
+
+[data-cursor-card-surface] {
+  transform-style: preserve-3d;
+  transform:
+    perspective(1100px)
+    translate3d(var(--cursor-card-x, 0), var(--cursor-card-y, 0), 0)
+    rotateX(var(--cursor-card-tilt-x, 0))
+    rotateY(var(--cursor-card-tilt-y, 0));
+  transition: transform 120ms linear;
+  will-change: transform;
+}
+
+/* This is the accepted desktop-only policy from Field V2. */
+@media (max-width: 1000px), (prefers-reduced-motion: reduce), (pointer: coarse) {
+  [data-cursor-physics-root] .field-v2-canvas {
+    display: none;
+  }
+  [data-cursor-title-surface],
+  [data-cursor-subtitle-surface],
+  [data-cursor-card-surface] {
+    transform: none !important;
+    transition: none;
+  }
+}

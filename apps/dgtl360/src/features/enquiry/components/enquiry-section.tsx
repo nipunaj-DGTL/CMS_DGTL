@@ -16,6 +16,24 @@ export function EnquirySection({
 }) {
   const email = content?.email || settings?.contact.email || 'info@dgtl.lk';
   const enquiry = settings?.enquiryContent;
+  if (compact) return (
+    <section className={`${styles.section} ${styles.compact} ${styles.splitContact}`} aria-label={enquiry?.serviceKicker ?? 'Get in touch'}>
+      <section className={styles.formPanel} aria-labelledby="service-form-title">
+        <p className={styles.kicker}>{enquiry?.homeKicker ?? 'START A CONVERSATION'}</p>
+        <h2 id="service-form-title">{enquiry?.submitLabel ?? 'Send an enquiry.'}</h2>
+        <EnquiryForm compact labels={enquiry} />
+      </section>
+      <section className={styles.detailsPanel} aria-labelledby="service-enquiry-title">
+        <p className={styles.kicker}>{enquiry?.serviceKicker ?? 'CONTACT DETAILS'}</p>
+        <h2 id="service-enquiry-title">{enquiry?.serviceHeading}</h2>
+        <p className={styles.copy}>{enquiry?.serviceText}</p>
+        <a className={styles.email} href={`mailto:${email}`}>{email} ↗</a>
+        <address className={styles.address}><span>{enquiry?.addressLabel ?? 'VISIT US'}</span>
+          {(content?.address ?? settings?.contact.address ?? '').split('\n').map((line, index) => <span className={styles['address-line']} key={index}>{line}<br /></span>)}
+        </address>
+      </section>
+    </section>
+  );
   return (
     <section className={`${styles.section} ${compact ? styles.compact : ''}`} id={compact ? undefined : 'enquiry'} aria-labelledby={compact ? 'service-enquiry-title' : 'enquiry-title'}>
       <p

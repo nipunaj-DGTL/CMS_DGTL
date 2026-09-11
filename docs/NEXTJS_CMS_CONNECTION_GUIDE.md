@@ -1,5 +1,7 @@
 # Connecting a New Next.js Website to the DGTL CMS
 
+For the detailed, role-by-role onboarding and maintenance process for independently hosted frontends, start with [Future Client Frontend Integration Roadmap](FUTURE_CLIENT_FRONTEND_INTEGRATION_ROADMAP.md). It includes external-repository examples, current API boundaries, deployment/QA gates, and the required shared-preview-secret trust review. Review that trust decision before copying preview credentials to a client-controlled deployment.
+
 This guide explains how to connect an existing or new Next.js App Router website to the DGTL multi-tenant Payload CMS. It is written for the frontend, CMS, and operations developers who will onboard the next client.
 
 The working reference implementations are:
@@ -404,16 +406,16 @@ The revalidation handler must:
 - reject timestamps older or newer than five minutes;
 - calculate `HMAC-SHA256(secret, timestamp + "." + rawBody)`;
 - compare signatures with a timing-safe comparison;
-- reject duplicate delivery IDs;
+- acknowledge authenticated duplicate deliveries successfully because cache invalidation is idempotent;
 - require the body `websiteKey` to equal `CMS_WEBSITE_KEY`;
 - accept no more than 20 paths or tags;
 - accept only tags starting with `cms:site:<website-key>`;
 - reject paths that do not start with `/`, contain `..`, or contain `?`;
-- call `revalidateTag(tag, 'max')` and `revalidatePath(path)` only after validation.
+- call `revalidateTag(tag, { expire: 0 })` and `revalidatePath(path)` only after validation, matching the current reference handler.
 
 The CMS worker must run continuously. Publishing creates a `Revalidation delivery`; the worker signs it and sends it to the website's configured `revalidationUrl`.
 
-The in-memory delivery-ID map in the MVP is suitable for a single frontend process. A horizontally scaled production frontend needs a shared idempotency/cache store.
+The in-memory delivery-ID map does not persist across instances or restarts. Repeating authenticated cache invalidation is safe; a durable shared receipt store is needed if stronger replay/idempotency guarantees or non-idempotent side effects are introduced. Multi-instance cache invalidation must also be coordinated by the hosting/runtime configuration.
 
 ## 13. Add a new editable component field
 
