@@ -25,6 +25,13 @@ try {
     }
   }
   console.log(`Migration schema probe passed: ${collections} collections, ${versionedCollections} versioned collections.`)
-} finally {
-  await payload.destroy()
+} catch (error) {
+  console.error('Migration schema probe failed:', error)
+  process.exit(1)
 }
+
+// Like Payload's own migration CLI, exit only after all operations have been
+// awaited. Payload 3.88 reserves a PostgreSQL monitoring connection; waiting
+// for pool shutdown here can hang an otherwise finished one-shot process.
+// This read-only command has no background writes to drain.
+process.exit(0)
