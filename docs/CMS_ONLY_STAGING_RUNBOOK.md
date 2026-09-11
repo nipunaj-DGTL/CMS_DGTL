@@ -15,10 +15,19 @@ customer data. A passing build is not production approval.
 
 1. Review the intended CMS/content-contract changes and generated migrations.
 2. Commit them together. Never run schema push against staging.
+   Generate migration snapshots with the production configuration: Payload
+   enables email verification only in production, so development-only schema
+   generation omits its authentication columns. Use non-secret configuration
+   placeholders for offline generation (`payload migrate:create` does not
+   connect to the database), not real production secrets.
 3. Require the CI checks for that exact commit: release validation, lint,
    types, unit/contracts, PostgreSQL isolation, migration-only boot, browser
    tests and security checks. Demo consumer tests remain regression coverage;
    passing them does not require hosting demo websites in production.
+   After migrations, run `pnpm --filter @dgtl/cms verify:migrated-schema` with
+   `NODE_ENV=production` and `PAYLOAD_DB_PUSH=false`. This read-only probe
+   queries every collection and its version tables; a 200 health/login response
+   alone can hide an SQL error while rendering the admin interface.
 4. Merge the reviewed candidate into the protected default branch. Image and
    deployment workflows continue to reject non-default-branch manual releases.
 
@@ -56,6 +65,14 @@ a separate migrator user. For self-hosted PostgreSQL, also provide
 `postgres.env`; `compose.self-hosted-db.yml` provides private PostgreSQL and
 ClamAV. With managed PostgreSQL, configure a separate private ClamAV service;
 omitting the database override also omits its scanner.
+
+Production always uses migrations; schema push is disabled even if someone
+mistakenly sets `PAYLOAD_DB_PUSH=true`. An explicit `false` also disables push
+for development-mode test servers. Do not run development auto-push against
+the staging database. Adding verification columns does not automatically
+verify imported accounts: existing accounts must complete verification or be
+reviewed through the approved super-admin process. No bulk verification bypass
+is part of the migration.
 
 Protect first-user setup behind restricted access. Create the intended company
 super admin, verify account/email behavior and prove anonymous signup is closed

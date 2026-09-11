@@ -190,6 +190,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Apply only committed migrations
         run: pnpm migrate
+      - name: Query the complete production collection and version schema
+        run: pnpm --filter @dgtl/cms verify:migrated-schema
       - run: pnpm --filter @dgtl/cms build
       - name: Prove the current CMS starts on the migrated schema
         run: |
@@ -310,6 +312,7 @@ jobs:
             runtime_env+=(--env "$key")
           done
           docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate
+          docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate ./node_modules/.bin/tsx src/scripts/verify-migrated-schema.ts
           docker run --detach --name cms-ci-web --network host "${runtime_env[@]}" --env PORT=3200 dgtl-cms-ci:web
           docker run --detach --name cms-ci-worker --network host "${runtime_env[@]}" dgtl-cms-ci:worker
           for attempt in {1..60}; do
