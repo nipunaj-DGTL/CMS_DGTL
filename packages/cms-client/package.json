@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@dgtl/content-contracts": "workspace:*",
-    "zod": "4.5.4"
+    "zod": "4.6.2"
   },
   "devDependencies": {
     "typescript": "5.7.3",
