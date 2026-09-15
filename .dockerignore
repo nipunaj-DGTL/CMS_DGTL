@@ -11,6 +11,8 @@ node_modules
 **/playwright-report
 **/coverage
 # Never send local credentials to the Docker daemon/build cache.
+**/.npmrc
+**/.netrc
 **/.env
 **/.env.*
 **/*.env

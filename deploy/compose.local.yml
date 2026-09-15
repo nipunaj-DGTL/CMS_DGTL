@@ -1,0 +1,103 @@
+# Separate, loopback-only Docker Desktop development environment.
+# Start with: node scripts/docker-local.mjs up
+name: dgtl-cms-local
+
+x-environment: &environment
+  NODE_ENV: development
+  PAYLOAD_DB_PUSH: "false"
+  CMS_LOCAL_DOCKER: "true"
+  CMS_DATABASE_URL: postgresql://cms_local:${LOCAL_DB_PASSWORD:?Run the local setup script}@postgres:5432/dgtl_cms_docker_local
+  CMS_PUBLIC_URL: http://localhost:3000
+  PAYLOAD_SECRET: ${LOCAL_PAYLOAD_SECRET:?Run the local setup script}
+  CMS_PREVIEW_SIGNING_SECRET: ${LOCAL_PREVIEW_SECRET:?Run the local setup script}
+  CMS_MEDIA_STORAGE: local
+  CMS_MEDIA_SCAN_MODE: basic
+  CMS_WEBSITE_READ_TOKENS: "{}"
+  CMS_REVALIDATION_SECRETS: "{}"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+x-app: &app
+  image: dgtl-cms-local:development
+  init: true
+  stop_grace_period: 30s
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  environment: *environment
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dgtl_cms_docker_local
+      POSTGRES_USER: cms_local
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?Run the local setup script}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # The entrypoint's temporary initialization server is socket-only. Wait
+      # for TCP so migrations cannot race database initialization.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U cms_local -d dgtl_cms_docker_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["./node_modules/.bin/payload", "migrate"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  bootstrap:
+    <<: *app
+    restart: "no"
+    command: ["./node_modules/.bin/tsx", "src/scripts/bootstrap-local-docker.ts"]
+    environment:
+      <<: *environment
+      LOCAL_ADMIN_EMAIL: ${LOCAL_ADMIN_EMAIL:?Run the local setup script}
+      LOCAL_ADMIN_PASSWORD: ${LOCAL_ADMIN_PASSWORD:?Run the local setup script}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  cms:
+    <<: *app
+    build:
+      context: ..
+      dockerfile: apps/cms/Dockerfile
+      target: development
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - media_data:/app/apps/cms/media
+      - next_cache:/app/apps/cms/.next
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 10s
+      start_period: 180s
+      retries: 10
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+
+  worker:
+    <<: *app
+    restart: unless-stopped
+    command: ["node", "--import", "tsx", "src/worker.ts"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 150s
+      retries: 5
+    depends_on:
+      cms: { condition: service_healthy }
+
+volumes:
+  postgres_data:
+  media_data:
+  next_cache:

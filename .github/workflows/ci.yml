@@ -46,6 +46,8 @@ jobs:
         run: node .github/scripts/validate-action-pins.mjs
       - name: Check CMS-only and optional demo release contracts
         run: node --test .github/scripts/release-scope.test.mjs
+      - name: Reject unsafe production configuration
+        run: node --test .github/scripts/production-preflight.test.mjs
       - name: Validate release shell and rendered Compose model
         env:
           CADDY_IMAGE: docker.io/library/caddy@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -313,7 +315,7 @@ jobs:
           done
           docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate
           timeout 120s docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate ./node_modules/.bin/tsx src/scripts/verify-migrated-schema.ts
-          docker run --detach --name cms-ci-web --network host "${runtime_env[@]}" --env PORT=3200 dgtl-cms-ci:web
+          docker run --detach --name cms-ci-web --network host "${runtime_env[@]}" --env PORT=3200 --env DEBUG=next:start-server dgtl-cms-ci:web
           docker run --detach --name cms-ci-worker --network host "${runtime_env[@]}" dgtl-cms-ci:worker
           for attempt in {1..60}; do
             if curl --fail --silent http://127.0.0.1:3200/api/health >/dev/null && \
@@ -324,6 +326,35 @@ jobs:
             sleep 2
           done
           exit 1
+      - name: Require clean worker and web shutdown, then verify restart
+        run: |
+          mkdir -p container-evidence
+          for name in cms-ci-worker cms-ci-web; do
+            docker stop --time 30 "$name"
+            docker inspect --format '{{.Name}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' "$name" | tee -a container-evidence/shutdown.txt
+            expected_exit=0
+            if [[ "$name" == cms-ci-web ]]; then
+              # Next 16.3.4 exits 143 only after its SIGTERM cleanup path.
+              # Require the completion diagnostic, not just the signal code.
+              expected_exit=143
+              docker logs "$name" >container-evidence/web-shutdown.log 2>&1
+              grep -q 'start-server process cleanup finished' container-evidence/web-shutdown.log
+            fi
+            test "$(docker inspect --format '{{.State.ExitCode}}' "$name")" = "$expected_exit"
+            test "$(docker inspect --format '{{.State.OOMKilled}}' "$name")" = false
+          done
+          docker start cms-ci-web cms-ci-worker
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3200/api/health >/dev/null && \
+               curl --fail --silent http://127.0.0.1:3001/health >/dev/null; then
+              curl --fail --silent http://127.0.0.1:3200/admin/login >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Verify worker lock ownership and lifecycle on an isolated database
+        run: node scripts/test-worker-lifecycle.mjs dgtl-cms-ci:worker
       - name: Capture Docker runtime evidence
         if: always()
         run: |
@@ -335,7 +366,9 @@ jobs:
         if: always()
         with:
           name: cms-container-evidence
-          path: container-evidence/
+          path: |
+            container-evidence/
+            .qa/worker-lifecycle-*/
           retention-days: 14
 
   security:

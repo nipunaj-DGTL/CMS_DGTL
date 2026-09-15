@@ -88,6 +88,12 @@ if [[ "${ENABLE_CADDY:-false}" == "true" ]]; then
   "${COMPOSE[@]}" --profile edge pull caddy
 fi
 
+echo "Checking runtime and migrator configuration without contacting providers or stopping the current release."
+"${COMPOSE[@]}" run --rm --no-deps --entrypoint node worker \
+  scripts/production-preflight.mjs --role runtime --expected-origin "${CMS_ORIGIN}"
+"${COMPOSE[@]}" --profile tools run --rm --no-deps --entrypoint node migrate \
+  scripts/production-preflight.mjs --role migration --expected-origin "${CMS_ORIGIN}"
+
 incumbent_cms_running_ids="$("${COMPOSE[@]}" ps --status running --quiet cms)"
 incumbent_worker_running_ids="$("${COMPOSE[@]}" ps --status running --quiet worker)"
 [[ -z "${incumbent_cms_running_ids}" ]] || incumbent_cms_was_running=true

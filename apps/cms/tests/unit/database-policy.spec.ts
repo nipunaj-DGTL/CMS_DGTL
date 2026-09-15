@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { shouldPushDatabaseSchema } from '../../src/services/database-policy'
+import { assertSafeDatabaseStartup, shouldPushDatabaseSchema } from '../../src/services/database-policy'
 
 describe('database schema push policy', () => {
+  it('rejects the destructive adapter startup flag in production before connecting', () => {
+    expect(() => assertSafeDatabaseStartup({ NODE_ENV: 'production', PAYLOAD_DROP_DATABASE: 'true' })).toThrow('PAYLOAD_DROP_DATABASE')
+  })
+  it('accepts ordinary production startup without the drop flag', () => {
+    expect(() => assertSafeDatabaseStartup({ NODE_ENV: 'production' })).not.toThrow()
+    expect(() => assertSafeDatabaseStartup({ NODE_ENV: 'production', PAYLOAD_DROP_DATABASE: 'false' })).not.toThrow()
+  })
   it.each([
     ['development', undefined, true],
     ['development', 'false', false],

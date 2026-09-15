@@ -19,6 +19,9 @@
 !packages/cms-client/package.json
 **/node_modules
 **/.next
+# Local registry/login configuration must never enter an image or its layers.
+**/.npmrc
+**/.netrc
 **/.env
 **/.env.*
 **/*.env

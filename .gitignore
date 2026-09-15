@@ -31,6 +31,7 @@ playwright/.cache/
 .cache/
 out/
 /.tmp/
+/.local/docker/
 *.log
 *.tsbuildinfo
 .DS_Store

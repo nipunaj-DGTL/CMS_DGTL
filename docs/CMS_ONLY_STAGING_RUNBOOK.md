@@ -127,6 +127,11 @@ images before stopping writers, checkpoints, runs migrations once, starts CMS
 and one worker, then validates CMS health and login availability.
 
 CMS-only smoke checks intentionally do not require a customer website to exist.
+Before the maintenance boundary, deployment now runs
+`apps/cms/scripts/production-preflight.mjs` in both tooling images using their
+actual runtime/migrator environments. Fix every reported field; never bypass the
+check by retaining CI placeholders. The check performs no network requests and
+does not replace real provider, privilege, firewall or recovery verification.
 After onboarding one synthetic website, run the stronger authenticated public
 API binding check with `SMOKE_WEBSITE_KEY` and `SMOKE_READ_TOKEN` supplied through
 protected process configuration, not the release manifest.

@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 
 import config from './payload.config'
 import { runRevalidationCycle } from './jobs/revalidation'
+import { createWorkerShutdown } from './services/worker-shutdown'
 import {
   beginWorkerHealthCycle,
   closeWorkerHealthServer,
@@ -27,19 +28,25 @@ const workerHealth: WorkerHealthState = {
 }
 const healthServer = once ? null : createWorkerHealthServer(workerHealth)
 
-const requestStop = (signal: NodeJS.Signals) => {
-  if (stopping) return
-  stopping = true
-  workerHealth.stopping = true
-  payload.logger.info({ signal }, 'Stopping the revalidation worker after the current delivery.')
-  stopController.abort()
-}
+const shutdown = createWorkerShutdown({
+  onStop: (reason) => {
+    stopping = true
+    workerHealth.stopping = true
+    payload.logger.info({ reason }, 'Stopping the revalidation worker after the current delivery.')
+    stopController.abort()
+  },
+  onTimeout: () => {
+    payload.logger.error('Worker drain exceeded 25 seconds; exiting unsuccessfully. Unfinished deliveries retain their retry lease.')
+    process.exit(1)
+  },
+})
 
-const onSIGINT = () => requestStop('SIGINT')
-const onSIGTERM = () => requestStop('SIGTERM')
+const onSIGINT = () => shutdown.request('SIGINT')
+const onSIGTERM = () => shutdown.request('SIGTERM')
 
-process.once('SIGINT', onSIGINT)
-process.once('SIGTERM', onSIGTERM)
+// Repeated signals must not bypass cleanup and terminate an in-flight delivery.
+process.on('SIGINT', onSIGINT)
+process.on('SIGTERM', onSIGTERM)
 
 const waitForNextCycle = (milliseconds: number): Promise<void> =>
   new Promise((resolve) => {
@@ -59,11 +66,21 @@ const waitForNextCycle = (milliseconds: number): Promise<void> =>
 // A session-level PostgreSQL advisory lock guarantees one active queue worker.
 // Keeping the dedicated connection open also makes an accidental second worker
 // a passive standby instead of allowing duplicate concurrent deliveries.
-const lockClient = await payload.db.pool.connect()
+const connectLock = () => payload.db.pool.connect()
+let lockClient: Awaited<ReturnType<typeof connectLock>> | undefined
 const workerLock = [0x4447544c, 0x434d5357] as const
 let hasWorkerLock = false
+const onLockError = (error: Error) => {
+  fatalWorkerError = true
+  hasWorkerLock = false
+  workerHealth.active = false
+  payload.logger.error({ err: error }, 'The revalidation worker lost its advisory-lock connection.')
+  shutdown.request('advisory-lock-lost')
+}
 
 try {
+  lockClient = await connectLock()
+  lockClient.on('error', onLockError)
   let loggedStandby = false
   while (!stopping && !hasWorkerLock) {
     const result = await lockClient.query<{ acquired: boolean }>(
@@ -90,16 +107,10 @@ try {
       // queue rows. PostgreSQL releases the lock if this session disappears.
       await lockClient.query('SELECT 1')
     } catch (error) {
-      fatalWorkerError = true
-      hasWorkerLock = false
-      workerHealth.active = false
+      onLockError(error instanceof Error ? error : new Error('Lock connection failed.'))
       workerHealth.cycleInProgress = false
       workerHealth.lastProgressAt = Date.now()
       workerHealth.lastCycleSucceeded = false
-      payload.logger.error(
-        { err: error },
-        'The revalidation worker lost its advisory-lock connection.',
-      )
       break
     }
 
@@ -128,10 +139,13 @@ try {
     if (once) break
     await waitForNextCycle(5000)
   }
+} catch (error) {
+  fatalWorkerError = true
+  payload.logger.error({ err: error }, 'Worker startup or lock acquisition failed.')
 } finally {
-  process.off('SIGINT', onSIGINT)
-  process.off('SIGTERM', onSIGTERM)
-  if (hasWorkerLock) {
+  // Also bound cleanup for --once and startup failures, not only SIGTERM.
+  shutdown.request('cleanup')
+  if (hasWorkerLock && lockClient) {
     try {
       await lockClient.query('SELECT pg_advisory_unlock($1, $2)', [...workerLock])
     } catch (error) {
@@ -141,12 +155,31 @@ try {
       )
     }
   }
-  lockClient.release()
+  // Destroy this dedicated session rather than returning an advisory-lock
+  // connection to the pool, even when explicit unlock failed.
+  lockClient?.release(true)
   workerHealth.active = false
   workerHealth.cycleInProgress = false
   workerHealth.stopping = true
-  await closeWorkerHealthServer(healthServer)
-  await payload.destroy()
+  try {
+    await closeWorkerHealthServer(healthServer)
+  } catch (error) {
+    fatalWorkerError = true
+    payload.logger.error({ err: error }, 'Worker health server cleanup failed.')
+  }
+  try {
+    await payload.destroy()
+  } catch (error) {
+    fatalWorkerError = true
+    payload.logger.error({ err: error }, 'Worker Payload cleanup failed.')
+  }
+  shutdown.complete()
+  process.off('SIGINT', onSIGINT)
+  process.off('SIGTERM', onSIGTERM)
 }
 
-if (fatalWorkerError) process.exitCode = 1
+// Payload 3.88's destroy clears schema state but leaves its pool/monitoring
+// connection alive. As in Payload's one-shot CLI, exit only AFTER all owned
+// delivery work and cleanup have settled. Do not fake success on a timeout.
+payload.logger.info({ exitCode: fatalWorkerError ? 1 : 0 }, 'Worker drain completed.')
+process.exit(fatalWorkerError ? 1 : 0)
