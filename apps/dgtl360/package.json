@@ -17,16 +17,16 @@
   "dependencies": {
     "@dgtl/cms-client": "workspace:*",
     "@dgtl/content-contracts": "workspace:*",
-    "next": "16.3.4",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "resend": "^6.25.0"
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "resend": "^6.28.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.4",
     "postcss": "8.5.26",
