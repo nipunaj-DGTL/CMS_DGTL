@@ -6,6 +6,8 @@ import { defineConfig, devices } from '@playwright/test'
  */
 import 'dotenv/config'
 
+const usesExternalServer = process.env.E2E_EXTERNAL_SERVER === 'true'
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -32,14 +34,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: process.env.E2E_BROWSER_CHANNEL ?? 'chromium',
+      },
     },
   ],
-  webServer: {
-    command: 'pnpm dev',
-    reuseExistingServer: !process.env.CI,
-    /* Wait for Payload's admin route to compile before starting timed tests. */
-    url: 'http://localhost:3000/admin/login',
-    timeout: 120_000,
-  },
+  webServer: usesExternalServer
+    ? undefined
+    : {
+        command: 'pnpm dev',
+        reuseExistingServer: !process.env.CI,
+        /* Wait for Payload's admin route to compile before starting timed tests. */
+        url: 'http://localhost:3000/admin/login',
+        timeout: 120_000,
+      },
 })

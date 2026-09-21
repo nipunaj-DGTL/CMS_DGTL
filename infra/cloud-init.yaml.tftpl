@@ -1,0 +1,60 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+ssh_pwauth: false
+
+users:
+  - default
+  - name: ${deploy_user}
+    gecos: DGTL deployment account
+    groups: [sudo]
+    lock_passwd: true
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+
+packages:
+  - ca-certificates
+  - curl
+  - docker.io
+  - docker-compose-v2
+  - fail2ban
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/60-dgtl-hardening.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      X11Forwarding no
+  - path: /etc/docker/daemon.json
+    owner: root:root
+    permissions: "0644"
+    content: |
+      {
+        "live-restore": true,
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-file": "5",
+          "max-size": "10m"
+        }
+      }
+  - path: /etc/apt/apt.conf.d/52dgtl-unattended-upgrades
+    owner: root:root
+    permissions: "0644"
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "false";
+
+runcmd:
+  - [bash, -lc, "set -euo pipefail; test -s /root/.ssh/authorized_keys; install -d -m 0700 -o ${deploy_user} -g ${deploy_user} /home/${deploy_user}/.ssh; install -m 0600 -o ${deploy_user} -g ${deploy_user} /root/.ssh/authorized_keys /home/${deploy_user}/.ssh/authorized_keys"]
+  - [usermod, -aG, docker, "${deploy_user}"]
+  - [bash, -lc, "set -euo pipefail; groupadd --force dgtl-deploy; usermod -aG dgtl-deploy ${deploy_user}; install -d -m 0700 -o ${deploy_user} -g dgtl-deploy /opt/dgtl/tooling /opt/dgtl/state /opt/dgtl/backups; install -d -m 0750 -o root -g dgtl-deploy /opt/dgtl/releases /opt/dgtl/secrets"]
+  - [systemctl, enable, --now, docker]
+  - [systemctl, enable, --now, fail2ban]
+  - [systemctl, enable, --now, unattended-upgrades]
+  - [sshd, -t]
+  - [systemctl, reload, ssh]
+
+final_message: "DGTL host bootstrap completed after $UPTIME seconds"

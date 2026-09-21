@@ -32,6 +32,12 @@ playwright/.cache/
 out/
 /.tmp/
 /.local/docker/
+/infra/.terraform/
+/infra/*.tfstate
+/infra/*.tfstate.*
+/infra/*.tfvars
+!/infra/*.tfvars.example
+/infra/crash.log
 *.log
 *.tsbuildinfo
 .DS_Store

@@ -29,4 +29,7 @@ coverage
 qa-evidence
 .backups
 .qa
+output
+infra
+/*.png
 *.log

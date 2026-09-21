@@ -11,6 +11,21 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   transpilePackages: ['@dgtl/content-contracts'],
+  async rewrites() {
+    return {
+      afterFiles: [],
+      beforeFiles: [
+        {
+          // Payload owns a broad /api/[...slug] route. Resolve the versioned
+          // delivery API in a separate internal namespace before filesystem
+          // and dynamic-route matching so Payload cannot shadow nested paths.
+          destination: '/dgtl-public-api/v1/sites/:path*',
+          source: '/api/dgtl/public/v1/sites/:path*',
+        },
+      ],
+      fallback: [],
+    }
+  },
   images: {
     localPatterns: [
       {
