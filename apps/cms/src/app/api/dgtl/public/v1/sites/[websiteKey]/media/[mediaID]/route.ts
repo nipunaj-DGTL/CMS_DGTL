@@ -46,6 +46,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ medi
     if (cachePolicy.notModified) {
       return new Response(null, {
         headers: {
+          // Only already-authorized public, clean media reaches this branch.
+          'Access-Control-Allow-Origin': '*',
           'Cache-Control': cachePolicy.cacheControl,
           ETag: cachePolicy.etag!,
         },
@@ -60,6 +62,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ medi
     })
 
     const headers = new Headers({
+      // Public media must be usable by independent frontend video/WebGL clients.
+      // No cookies or CMS tokens are accepted via this CORS policy.
+      'Access-Control-Allow-Origin': '*',
       'Accept-Ranges': 'bytes',
       'Cache-Control': cachePolicy.cacheControl,
       'Content-Length': String(storedMedia.contentLength),

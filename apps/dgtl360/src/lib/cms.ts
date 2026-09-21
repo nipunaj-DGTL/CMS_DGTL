@@ -1,3 +1,4 @@
+import 'server-only';
 import { cache } from 'react';
 
 import { CMSClientError, DGTLClient } from '@dgtl/cms-client';

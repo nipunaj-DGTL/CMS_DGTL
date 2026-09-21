@@ -69,6 +69,7 @@ export const CompanyOverview: Block = {
     { name: 'kicker', type: 'text', required: true },
     { name: 'heading', type: 'textarea', required: true },
     { name: 'lead', type: 'textarea', required: true },
+    { name: 'tagline', type: 'text' },
     {
       name: 'paragraphs',
       type: 'array',
@@ -103,6 +104,8 @@ export const TeamShowcase: Block = {
     { name: 'kicker', type: 'text', required: true },
     { name: 'heading', type: 'textarea', required: true },
     { name: 'instruction', type: 'text', required: true },
+    { name: 'backLabel', type: 'text', defaultValue: '← ALL PEOPLE' },
+    { name: 'profileLinkLabel', type: 'text', defaultValue: 'VIEW LINKEDIN PROFILE ↗' },
     { name: 'portraitImage', type: 'upload', relationTo: 'media' },
     { name: 'profileImage', type: 'upload', relationTo: 'media' },
     {
@@ -112,8 +115,20 @@ export const TeamShowcase: Block = {
       minRows: 1,
       fields: [
         { name: 'number', type: 'text', required: true },
+        { name: 'name', type: 'text' },
         { name: 'role', type: 'text', required: true },
-        { name: 'description', type: 'textarea', required: true },
+        { name: 'description', type: 'textarea' },
+        { name: 'image', type: 'upload', relationTo: 'media' },
+        {
+          name: 'linkedin', type: 'text', label: 'LinkedIn profile URL',
+          validate: (value: unknown) => {
+            if (value === undefined || value === null || value === '') return true
+            try {
+              const url = new URL(String(value))
+              return (url.protocol === 'https:' && ['linkedin.com', 'www.linkedin.com'].includes(url.hostname) && !url.username && !url.password) || 'Use an HTTPS LinkedIn profile URL.'
+            } catch { return 'Use an HTTPS LinkedIn profile URL.' }
+          },
+        },
         { name: 'portraitPosition', type: 'text', defaultValue: '50% 50%' },
         { name: 'profilePosition', type: 'text', defaultValue: '50% 50%' },
       ],

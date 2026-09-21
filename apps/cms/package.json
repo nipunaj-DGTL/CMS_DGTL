@@ -20,6 +20,8 @@
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import=tsx/esm\" playwright test --config=playwright.config.ts",
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.int.config.mts",
     "typecheck": "tsc --noEmit",
+    "verify:production-integrations": "cross-env NODE_OPTIONS=--no-deprecation tsx src/scripts/verify-production-integrations.ts",
+    "verify:migrated-schema": "cross-env NODE_OPTIONS=--no-deprecation tsx src/scripts/verify-migrated-schema.ts",
     "worker": "cross-env NODE_OPTIONS=--no-deprecation tsx src/worker.ts",
     "worker:once": "cross-env NODE_OPTIONS=--no-deprecation tsx src/worker.ts --once"
   },

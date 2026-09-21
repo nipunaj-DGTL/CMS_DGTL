@@ -22,17 +22,3 @@
 	import common_security
 	reverse_proxy cms:3000
 }
-
-{$CLIENT01_HOSTNAME} {
-	import common_security
-	reverse_proxy client01:3000
-}
-
-{$DGTL360_HOSTNAME} {
-	import common_security
-	reverse_proxy dgtl360:3000
-}
-
-{$DGTL360_WWW_HOSTNAME} {
-	redir https://{$DGTL360_HOSTNAME}{uri} permanent
-}

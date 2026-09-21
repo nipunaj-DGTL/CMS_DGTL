@@ -1,24 +1,19 @@
+import styles from '../about.module.css';
 import type { CMSStatementBlock } from '../../../lib/cms';
-import styles from '../company.module.css';
-
-const fallback: CMSStatementBlock = {
-  anchor: 'our-attitude',
-  blockType: 'statement',
-  heading: 'Sharp thinking,\nwarm humans,\nvery little agency\ntheatre.',
-  kicker: 'OUR ATTITUDE',
-  text: 'We ask the awkward question early, keep humans in charge and make the system earn its complexity. No loku scene.',
-};
 
 export function AttitudeSection({ content }: { content?: CMSStatementBlock }) {
-  const section = content ?? fallback;
-  const headingLines = section.heading.split(/\s*(?:\||\r?\n)\s*/).filter(Boolean);
+  const lines = (content?.heading ?? 'Sharp thinking,|warm humans,|very little agency|theatre.').split(/\s*(?:\||\r?\n)\s*/).filter(Boolean);
   return (
-    <section className={`${styles.statement} ${styles.attitude}`} id={section.anchor || 'our-attitude'} aria-labelledby="attitude-title">
-      <p className={styles.kicker}>{section.kicker}</p>
-      <h2 id="attitude-title">
-        {headingLines.map((line, index) => <span key={line}>{line}{index < headingLines.length - 1 ? <br /> : null}</span>)}
-      </h2>
-      <p className={styles.body}>{section.text}</p>
+    <section className={styles.aboutSection} id={content?.anchor ?? 'our-attitude'} aria-labelledby="attitude-title">
+      <header className={styles.aboutHeader}>
+      <p className={styles.kicker}>{content?.kicker ?? 'OUR ATTITUDE'}</p>
+      <h2 id="attitude-title">{lines.map((line, index) => <span key={`${index}-${line}`}>{index ? <br /> : null}{line}</span>)}</h2>
+      </header>
+      <div className={styles.aboutCopy}>
+      <p>
+        {content?.text ?? 'We ask the awkward question early, keep humans in charge and make the system earn its complexity. No loku scene.'}
+      </p>
+      </div>
     </section>
   );
 }

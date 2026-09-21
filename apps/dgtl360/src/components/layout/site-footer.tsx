@@ -1,67 +1,36 @@
 import Link from 'next/link';
-import styles from './site-footer.module.css';
 import type { CMSNavigationItem, CMSSiteSettings } from '../../lib/cms';
+import styles from './site-footer.module.css';
+import { SocialIcons } from './social-icons';
 
-const fallbackNavigation: CMSNavigationItem[] = [
-  { children: [], label: 'Services', url: '/services/production' },
-  { children: [], label: 'Integrated solutions', url: '/#who-we-are' },
-  { children: [], label: 'Our attitude', url: '/#our-attitude' },
-  { children: [], label: 'Team', url: '/#team' },
-];
-
-export function SiteFooter({ navigation, settings, useFallback = false }: { navigation?: CMSNavigationItem[]; settings?: CMSSiteSettings; useFallback?: boolean }) {
-  const brandName = settings?.displayName || 'DGTL 360';
-  const brandParts = brandName.split(/\s+/);
-  const brandAccent = brandParts.pop();
-  const brandBase = brandParts.join(' ');
-  const email = settings?.contact.email || 'info@dgtl.lk';
-  const links = navigation ?? (useFallback ? fallbackNavigation : []);
-  const brand = settings?.brandContent;
-  const headingLines = (brand?.footerHeading || 'Let’s make the|next thing work.')
-    .split(/\s*(?:\||\r?\n)\s*/)
-    .filter(Boolean);
+export function SiteFooter({ navigation, settings, backToTop = '#top' }: {
+  navigation?: CMSNavigationItem[];
+  settings?: CMSSiteSettings;
+  backToTop?: string;
+  useFallback?: boolean;
+}) {
+  const email = settings?.contact.email;
+  const links = navigation ?? [];
+  const columns = Array.from({ length: 3 }, (_, index) => links.slice(index * Math.ceil(links.length / 3), (index + 1) * Math.ceil(links.length / 3)));
+  const renderLink = (item: CMSNavigationItem | CMSNavigationItem['children'][number]) => (
+    <Link key={`${item.label}-${item.url}`} href={item.url} target={item.newTab ? '_blank' : undefined} rel={item.newTab ? 'noopener noreferrer' : undefined}>{item.label}</Link>
+  );
   return (
     <footer className={styles.footer} id="site-footer">
-      <div className={styles.topline}>
-        <strong>{brandBase} <span>{brandAccent}</span></strong>
-        <p>{brand?.locationLabel || 'COLOMBO + ANYWHERE'}</p>
-      </div>
-      <div className={styles.cta}>
-        <p>{brand?.footerEyebrow || 'HAVE A PROBLEM WORTH SOLVING?'}</p>
-        <div>
-          <h2>{headingLines.map((line, index) => <span key={line}>{line}{index < headingLines.length - 1 ? <br /> : null}</span>)}</h2>
-          <a href={`mailto:${email}`}>{email} ↗</a>
+      <div className={styles.main}>
+        <nav className={styles.links} aria-label="Footer navigation">
+          {columns.map((column, index) => <div key={index}>{column.map(item => <div className={styles.linkGroup} key={`${item.label}-${item.url}`}>{renderLink(item)}{item.children.map(renderLink)}</div>)}</div>)}
+        </nav>
+        <div className={styles.contact}>
+          <SocialIcons links={settings?.socialLinks} />
+          <Link href="/" className={styles.brand}>{settings?.displayName ?? 'DGTL 360'}</Link>
+          <p>{settings?.brandContent?.locationLabel}</p>
+          {email ? <a href={`mailto:${email}`}>{email} ↗</a> : null}
         </div>
       </div>
-      <div className={styles.links}>
-        <nav aria-label="Footer navigation">
-          <ul>
-            {links.map((item) => (
-              <li key={`${item.label}-${item.url}`}>
-                <Link href={item.url} target={item.newTab ? '_blank' : undefined} rel={item.newTab ? 'noopener noreferrer' : undefined}>
-                  {item.label}
-                </Link>
-                {item.children.length ? (
-                  <ul>
-                    {item.children.map((child) => (
-                      <li key={`${child.label}-${child.url}`}>
-                        <Link href={child.url} target={child.newTab ? '_blank' : undefined} rel={child.newTab ? 'noopener noreferrer' : undefined}>
-                          {child.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <p>{brand?.footerDescription || 'Brand, content, product, growth and the systems underneath—one accountable Colombo crew.'}</p>
-      </div>
       <div className={styles.legal}>
-        <span>{settings?.footerText || '© DGTL 360'}</span>
-        <span>{brand?.legalLocation || 'COLOMBO, SRI LANKA'}</span>
-        <a href="#top">{brand?.backToTopLabel || 'BACK TO TOP ↑'}</a>
+        <div className={styles.legalLinks}><span>{settings?.footerText}</span></div>
+        <a href={backToTop}>{settings?.brandContent?.backToTopLabel ?? 'Back to top ⌃'}</a>
       </div>
     </footer>
   );

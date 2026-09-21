@@ -48,4 +48,20 @@ test.describe('CMS canonical local origin', () => {
     expect(healthResponse.status()).toBe(200)
     await expect(healthResponse.json()).resolves.toMatchObject({ status: 'healthy' })
   })
+
+  test('routes nested public content requests before the Payload catch-all', async ({
+    request,
+  }) => {
+    for (const resource of ['pages/home', 'settings', 'navigation/header']) {
+      const response = await request.get(
+        `http://localhost:3000/api/dgtl/public/v1/sites/unknown-main/${resource}`,
+      )
+
+      expect(response.status()).toBe(404)
+      expect(response.headers()['cache-control']).toBe('no-store')
+      await expect(response.json()).resolves.toMatchObject({
+        error: { code: 'NOT_FOUND' },
+      })
+    }
+  })
 })

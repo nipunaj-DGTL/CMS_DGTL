@@ -284,12 +284,13 @@
 .cinemaReel {
   position: relative;
   width: 100%;
-  padding: 2rem 0 2.4rem;
-  border-top: 1px solid rgba(255,255,255,.18);
+  padding: 2rem 0 2.5rem;
+  border-top: 1px solid rgba(190,103,55,.34);
   overflow: hidden;
   background:
-    radial-gradient(circle at 78% 20%, color-mix(in srgb, var(--service-accent) 17%, transparent), transparent 34%),
-    #050505;
+    radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--service-accent) 10%, transparent), transparent 34%),
+    radial-gradient(circle at 18% 100%, rgba(120,45,18,.22), transparent 42%),
+    linear-gradient(180deg, #0b0503, #050201);
 }
 
 .reelHeader {
@@ -326,11 +327,23 @@
 
 .reelViewport {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
-  border-block: 1px solid rgba(255,255,255,.18);
-  background: #020202;
+  border-block: 1px solid rgba(232,145,85,.5);
+  background:
+    radial-gradient(ellipse at 52% 45%, rgba(248,126,52,.2), transparent 52%),
+    repeating-linear-gradient(91deg, transparent 0 74px, rgba(255,205,151,.04) 75px, transparent 77px),
+    linear-gradient(180deg, rgba(255,205,148,.16), transparent 20%, transparent 79%, rgba(255,174,101,.12)),
+    linear-gradient(90deg, #2a0d04, #743018 12%, #4b1708 46%, #6d2913 83%, #230a03);
+  box-shadow:
+    inset 0 22px 26px rgba(10,2,0,.9),
+    inset 0 -22px 26px rgba(10,2,0,.9),
+    inset 0 0 84px rgba(221,90,31,.26),
+    0 10px 32px rgba(0,0,0,.5),
+    0 0 0 1px rgba(76,23,8,.88);
   mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  touch-action: pan-y;
 }
 
 .reelViewport::before,
@@ -339,43 +352,41 @@
   z-index: 5;
   right: 0;
   left: 0;
-  height: 9px;
+  height: 17px;
   background: repeating-linear-gradient(
     90deg,
-    transparent 0 10px,
-    rgba(255,255,255,.45) 10px 28px,
-    transparent 28px 42px
+    transparent 0 11px,
+    #020101 11px 29px,
+    transparent 29px 43px
   );
+  border-block: 1px solid rgba(36,8,1,.8);
+  box-shadow: inset 0 1px rgba(238,133,75,.1), inset 0 -1px rgba(238,133,75,.08);
+  opacity: 1;
   content: '';
   pointer-events: none;
 }
 
 .reelViewport::before {
-  top: 6px;
+  top: 8px;
 }
 
 .reelViewport::after {
-  bottom: 6px;
+  bottom: 8px;
 }
 
 .reelTrack {
   display: flex;
   width: max-content;
+  transform: translate3d(0, 0, 0);
   will-change: transform;
-  animation: cinemaRoll 42s linear infinite;
-}
-
-.reelViewport:hover .reelTrack,
-.reelViewport:focus-within .reelTrack {
-  animation-play-state: paused;
 }
 
 .reelList {
   display: flex;
   flex: none;
-  gap: 14px;
+  gap: 9px;
   margin: 0;
-  padding: 29px 7px;
+  padding: 43px 5px;
   list-style: none;
 }
 
@@ -386,62 +397,118 @@
   width: clamp(220px, 21vw, 292px);
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.18);
-  border-radius: 0 0 18px;
-  background: #111;
-  box-shadow: 0 20px 48px rgba(0,0,0,.42);
-  transition: border-color 220ms ease, transform 320ms cubic-bezier(.16, 1, .3, 1);
+  border: 2px solid rgba(132,50,19,.98);
+  border-radius: 2px;
+  background: #351006;
+  box-shadow:
+    0 12px 30px rgba(8,2,0,.66),
+    0 0 0 2px rgba(211,89,34,.23),
+    inset 0 0 0 1px rgba(255,177,119,.18),
+    inset 0 0 26px rgba(117,35,10,.42);
+  opacity: .86;
+  transform: scale(.975);
+  transform-origin: center;
+  transition:
+    border-color 320ms ease,
+    box-shadow 480ms cubic-bezier(.16, 1, .3, 1),
+    opacity 420ms ease,
+    transform 520ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.reelCard::before {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border: 1px solid rgba(255,197,151,.19);
+  background:
+    repeating-linear-gradient(102deg, transparent 0 46px, rgba(255,228,194,.025) 47px, transparent 49px),
+    rgba(116,39,14,.27);
+  content: '';
+  pointer-events: none;
+  transition: opacity 420ms ease;
 }
 
 .reelCard::after {
   position: absolute;
+  z-index: 1;
   inset: 0;
-  background: linear-gradient(180deg, transparent 34%, rgba(0,0,0,.92));
+  background:
+    radial-gradient(circle at 78% 16%, rgba(255,170,91,.08), transparent 24%),
+    linear-gradient(180deg, rgba(27,7,1,.15), transparent 35%),
+    linear-gradient(180deg, transparent 36%, rgba(15,3,0,.9));
   content: '';
+  transition: background 420ms ease;
 }
 
 .reelCard[data-current='true'] {
-  border-color: var(--reel-accent);
-  box-shadow: 0 0 0 1px var(--reel-accent), 0 22px 56px rgba(0,0,0,.55);
+  border-color: rgba(226,139,73,.72);
+  box-shadow: 0 0 0 1px rgba(226,139,73,.34), 0 22px 56px rgba(0,0,0,.55);
+  opacity: .96;
 }
 
 .reelImage {
-  filter: saturate(.78) contrast(1.06);
-  transition: filter 360ms ease, transform 520ms cubic-bezier(.16, 1, .3, 1);
+  filter: invert(1) sepia(.86) hue-rotate(-24deg) saturate(.9) brightness(.64) contrast(1.42);
+  transform: scale(1.01);
+  transition: filter 560ms cubic-bezier(.16, 1, .3, 1), transform 620ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .reelCard strong {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   right: 16px;
   bottom: 15px;
   left: 16px;
-  color: #fff;
+  color: rgba(255,255,255,.78);
   font-size: clamp(18px, 1.65vw, 25px);
   font-weight: 780;
   line-height: .94;
   letter-spacing: -.045em;
+  text-shadow: 0 2px 18px rgba(0,0,0,.92);
   text-transform: uppercase;
+  transition: color 320ms ease, transform 480ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.reelTrack:has(.reelCard:hover) .reelCard:not(:hover),
+.reelTrack:has(.reelCard:focus-visible) .reelCard:not(:focus-visible) {
+  opacity: .34;
+  transform: scale(.935);
 }
 
 .reelCard:hover,
 .reelCard:focus-visible {
-  z-index: 2;
+  z-index: 6;
   border-color: var(--reel-accent);
+  box-shadow:
+    0 0 0 1px var(--reel-accent),
+    0 30px 66px rgba(0,0,0,.76),
+    0 0 42px color-mix(in srgb, var(--reel-accent) 34%, transparent);
+  opacity: 1;
   outline: none;
-  transform: translateY(-5px);
+  transform: translateY(-8px) scale(1.075) rotate(-.25deg);
+}
+
+.reelCard:hover::before,
+.reelCard:focus-visible::before {
+  opacity: 0;
+}
+
+.reelCard:hover::after,
+.reelCard:focus-visible::after {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.03), transparent 42%),
+    linear-gradient(180deg, transparent 40%, rgba(0,0,0,.76));
 }
 
 .reelCard:hover .reelImage,
 .reelCard:focus-visible .reelImage {
-  filter: saturate(1.08) contrast(1.1);
-  transform: scale(1.055);
+  filter: invert(0) sepia(0) saturate(1) brightness(1) contrast(1);
+  transform: scale(1.065);
 }
 
-@keyframes cinemaRoll {
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
+.reelCard:hover strong,
+.reelCard:focus-visible strong {
+  color: #fff;
+  transform: translateY(-2px);
 }
 
 .contact {
@@ -541,19 +608,64 @@
 
   .reelHeader {
     grid-template-columns: 1fr;
-    padding-inline: 18px;
+    padding: 0 18px 1rem;
   }
 
   .reelHeader span {
     display: none;
   }
 
-  .reelCard {
-    width: min(70vw, 260px);
+  .reelHeader h2 {
+    font-size: clamp(26px, 9vw, 36px);
   }
 
-  .reelTrack {
-    animation-duration: 34s;
+  .cinemaReel {
+    padding-block: 1.45rem 1.7rem;
+  }
+
+  .reelViewport {
+    mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
+  }
+
+  .reelViewport::before,
+  .reelViewport::after {
+    height: 11px;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0 7px,
+      #020101 7px 19px,
+      transparent 19px 28px
+    );
+  }
+
+  .reelViewport::before {
+    top: 5px;
+  }
+
+  .reelViewport::after {
+    bottom: 5px;
+  }
+
+  .reelList {
+    gap: 6px;
+    padding: 28px 3px;
+  }
+
+  .reelCard {
+    width: min(56vw, 210px);
+    border-width: 1px;
+    box-shadow:
+      0 8px 18px rgba(8,2,0,.64),
+      0 0 0 1px rgba(211,89,34,.24),
+      inset 0 0 0 1px rgba(255,177,119,.14);
+  }
+
+  .reelCard strong {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    font-size: clamp(13px, 4.2vw, 18px);
   }
 
   .detailFooter {
@@ -584,7 +696,7 @@
   }
 
   .reelTrack {
-    animation: none;
+    transform: none !important;
   }
 
   .reelList[aria-hidden='true'] {
@@ -597,3 +709,38 @@
   }
 
 }
+
+/* Native bidirectional touch scrolling; autoplay reverses at either end. */
+@media (max-width: 1000px), (pointer: coarse) {
+  .reelViewport {
+    overflow-x: auto;
+    touch-action: pan-x pan-y pinch-zoom;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .reelViewport::-webkit-scrollbar { display: none; }
+  .reelTrack { transform: none !important; }
+  .reelList[aria-hidden='true'] { display: none; }
+  .reelHeader span {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    text-align: left;
+    line-height: 1.4;
+  }
+}
+
+.hero > *, .layout > *, .sectionHeader > * { min-width: 0; }
+@media (min-width: 1001px) and (max-width: 1200px) {
+  .hero { grid-template-columns: 1fr; }
+  .serviceVisual { width: 100%; height: min(45vw, 480px); }
+}
+@media (max-height: 650px) and (min-width: 1001px) {
+  .contact { position: relative; top: auto; height: auto; min-height: 0; overflow: visible; }
+}
+.detailFooter { flex-wrap: wrap; gap: 18px; line-height: 1.5; }
+
+.reelViewport { cursor: grab; user-select: none; }
+.reelViewport[data-dragging='true'], .reelViewport[data-dragging='true'] a { cursor: grabbing; }
+.reelViewport img { -webkit-user-drag: none; }
+.reelViewport:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }

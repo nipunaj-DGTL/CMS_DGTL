@@ -1,0 +1,38 @@
+{
+	admin off
+	email {$ACME_EMAIL}
+	log {
+		format json
+	}
+}
+
+(common_security) {
+	encode zstd gzip
+	header {
+		-Server
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+	}
+}
+
+{$CMS_HOSTNAME} {
+	import common_security
+	reverse_proxy cms:3000
+}
+
+{$CLIENT01_HOSTNAME} {
+	import common_security
+	reverse_proxy client01:3000
+}
+
+{$DGTL360_HOSTNAME} {
+	import common_security
+	reverse_proxy dgtl360:3000
+}
+
+{$DGTL360_WWW_HOSTNAME} {
+	redir https://{$DGTL360_HOSTNAME}{uri} permanent
+}

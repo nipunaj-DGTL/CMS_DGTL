@@ -24,6 +24,7 @@ import {
 import { getMediaScanMode } from './services/malware-scan'
 import { getMediaStorageConfiguration, MEDIA_COLLECTION_PREFIX } from './services/media-storage'
 import { getEmailAdapter } from './services/email'
+import { assertSafeDatabaseStartup, shouldPushDatabaseSchema } from './services/database-policy'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -32,6 +33,7 @@ const allowedOrigins = (process.env.CMS_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
+assertSafeDatabaseStartup()
 const mediaStorage = getMediaStorageConfiguration()
 
 // Fail fast during production boot if the mandatory scanning policy is missing.
@@ -66,7 +68,7 @@ export default buildConfig({
   db: postgresAdapter({
     migrationDir: path.resolve(dirname, 'migrations'),
     pool: { connectionString: process.env.CMS_DATABASE_URL ?? process.env.DATABASE_URL ?? '' },
-    push: process.env.NODE_ENV === 'development' || process.env.PAYLOAD_DB_PUSH === 'true',
+    push: shouldPushDatabaseSchema(),
   }),
   editor: lexicalEditor(),
   email: getEmailAdapter(),

@@ -187,7 +187,7 @@ for (const [key, argument] of [
   requireWorkflowText(
     deployWorkflow,
     "deploy.yml",
-    `--arg ${argument} "$${key}"`,
+    `--arg ${argument} "\${${key}:-}"`,
     `verify ${key} from the release manifest against the signed policy`,
   );
 }

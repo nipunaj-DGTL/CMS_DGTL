@@ -10,7 +10,7 @@ export const services: Service[] = [
     summary:
       'We build every production as one connected piece—sound, image and edit developed together, not stitched together after the fact. Composition, filming, photography and post-production stay tied to the same creative idea, from first take to final delivery.',
     detailDescription:
-      'Production covers everything created in sound and colour. On the audio side, that includes original music, jingles, voiceovers and podcast production. Through visual, it’s TVCs, music videos, digital ads, corporate films, branded content, live productions and photography. This is all shaped through creative development before a frame is shot. Once it’s captured, post-production brings it together with motion graphics, animation, VFX, colour grading and AI-assisted content work.',
+      "Production covering everything created in sound and color. On the audio side, that would include original music, jingles, voiceovers and podcast production. Through visual it's TVCs, music videos, digital ads, corporate films, branded content, live productions and photography. This is all shaped through creative development before a frame is shot. Once it's captured, post-production brings it together with motion graphics, animation, VFX, color grading and AI-assisted content work.",
     tagline: 'Sound + Vision',
     accent: '#ff5c35',
     image: '/assets/services/production-v01.webp',
@@ -43,7 +43,7 @@ export const services: Service[] = [
     summary:
       'Found the idea? Let’s build it into a distinctive identity. Positioning, naming, design and go-to-market decisions stay connected together.',
     detailDescription:
-      'Branding & Strategy is where a business becomes its own unique brand. Starting with positioning, we find the right idea that makes your brand genuinely different. We build that into an identity through logo design, brand systems and artwork creation. We also connect it to a go-to-market plan covering trade marketing and business 0–1 foundations, so naming, messaging and launch all stay tied to the same strategic idea.',
+      "Branding & Strategy is where a business becomes its own unique brand. Starting with positioning — we find the right idea that makes your brand unique and genuinely different. Building that into an identity through logo design, brand systems and artwork creation. We will also connect it to a go-to-market plan which endeavors to cover trade marketing and business 0-1 foundations - naming, messaging and launch therefore all stay tied to the same strategic idea.",
     tagline: 'Identity + System',
     accent: '#2350ff',
     image: '/assets/services/brand-strategy-v01.webp',
@@ -87,7 +87,7 @@ export const services: Service[] = [
     preview: 'Digital Marketing',
     summary: 'Digital Marketing.',
     detailDescription:
-      'Digital Marketing covers how your brand shows up online, how well it performs and what happens once it’s live. That means digital and social media strategy, content creation across audio, video and graphics, day-to-day platform handling, targeted social and Google advertising, influencer partnerships, website design and development, and SEO—all working toward the same purpose.',
+      "Digital Marketing covers how your brand shows up online. How well it performs. What happens once it's live. That means digital and social media strategy, content creation across audio, video and graphics, day-to-day platform handling, targeted social and Google advertising, influencer partnerships, website design and development, and SEO — all working toward the same oriented purpose.",
     tagline: 'Digital Marketing',
     accent: '#ff2d9a',
     image: '/assets/services/social-growth-v01.webp',
@@ -113,7 +113,7 @@ export const services: Service[] = [
     summary:
       'We develop the systems your business runs on, not just the site your customers see. Full-stack builds, CMS platforms and CRM workflows are designed together, so what’s under the hood holds up as well as what’s on the surface.',
     detailDescription:
-      'Web Development covers the systems a business actually runs on. This is not just the site customers see, but full-stack development handled front to back, CMS solutions for easy ongoing content control, and CRM and workflow integration that keeps customer systems and business processes moving in sync.',
+      "Web Development covers the systems a business actually runs on. This is not just the site customers see but the full-stack development handled front to back, CMS solutions for easy ongoing content control, and CRM and workflow integration that keeps customer systems and business processes moving in sync.",
     tagline: 'Build + Manage',
     accent: '#ff9f1c',
     image: '/assets/services/web-platforms-v01.webp',
@@ -142,7 +142,7 @@ export const services: Service[] = [
     summary:
       'We take an app from its initial sprint to the first screen it is intended to run on. Agile development, native builds and DevOps support stay connected end-to-end, so your product ships fast, runs smoothly and keeps working long after first use.',
     detailDescription:
-      'App Development covers building and running a product end to end. Agile development augmented with bespoke AI tools, native iOS and Android builds plus progressive web apps for reaching every platform, and ongoing DevOps support keep everything running smoothly long after launch.',
+      "App Development covering building and running a product end to end. Agile development augmented with bespoke AI tools, native iOS and Android builds plus progressive web apps for reaching every platform, and ongoing DevOps support that keeps everything running smoothly long after launch.",
     tagline: 'Build + Operate',
     accent: '#ff6247',
     image: '/assets/services/apps-product-v01.webp',
@@ -175,7 +175,7 @@ export const services: Service[] = [
     summary:
       'We build the digital infrastructure behind the customer experience. POS, call centre, HR and enterprise systems are designed to work together, giving your business one connected foundation for digital workability.',
     detailDescription:
-      'Digital Services covers the operational systems behind customer experiences. That includes POS systems for smooth, reliable transactions and customer service call centre solutions that keep support responsive at any volume. HRM solutions simplify people management from onboarding onward, while enterprise solutions are custom-fit for businesses operating at scale.',
+      "Digital Services covers the operational systems behind the customer experiences. That's POS systems for smooth and reliable transactions as well as customer service call center solutions that keep support responsive at any volume. HRM solutions that simplify people management from onboarding onward, and enterprise solutions custom-fit for businesses operating at scale.",
     tagline: 'Service + Scale',
     accent: '#0a7f5a',
     image: '/assets/services/business-systems-v01.webp',
@@ -208,7 +208,7 @@ export const services: Service[] = [
     summary:
       'We build events the same way we build brands—concept first, then everything needed to bring it into a room. Corporate, wedding, private and custom productions stay tied to one creative direction, from first plan to the last guest out the door.',
     detailDescription:
-      'Events & Experiences covers everything from corporate functions and weddings to private celebrations and fully custom productions, handling concept through execution. Corporate events span conferences, seminars, AGMs, award ceremonies, retreats and gala dinners. Weddings can run from concept and planning through coordination and destination celebrations. Private and social events include birthdays, anniversaries, themed and surprise events, alongside larger community, cultural and festival experiences. When nothing fits a category, custom solutions cover event strategy, staging, AV production, entertainment booking, logistics and post-event reporting.',
+      "Events & Experiences covering everything from corporate functions or weddings to private celebrations and fully custom productions, handling concept directly to execution. Corporate events span conferences, seminars, AGMs, award ceremonies, retreats and gala dinners. With weddings, we go the full mile, from concept and planning out the map through to coordination as well as destination weddings. Private and social events can cover birthdays, anniversaries with both themed and surprise events alongside larger community, cultural and festival experiences. When nothing fits a category, custom solutions cover everything from event strategy, staging as well as AV production, entertainment booking, logistics and post-event reporting.",
     tagline: 'Concept + Production',
     accent: '#8d33ff',
     image: '/assets/services/events-experiences-v01.webp',
@@ -245,7 +245,7 @@ export const services: Service[] = [
     summary:
       'We design AI systems that do real work inside your business, not just answer questions. Agents, automation and integration are built as one connected layer, so the technology plugs into how your team already operates.',
     detailDescription:
-      'Agentic Biz Systems covers AI that actually works inside a business: autonomous AI agents and agentic workflows that automate multi-step processes end to end. Automation solutions take repetitive work off a team’s plate, while integration services connect AI cleanly into existing systems. Everything is built to support people’s work rather than replace it.',
+      "Agentic Biz Systems covers AI that actually works inside a business which would be autonomous AI agents and agentic workflows that automate multi-step processes end to end. This is backed by automation solutions taking repetitive work off a team's plate and integration services that connect it cleanly into existing systems all being built to support people's work rather than replacing it.",
     tagline: 'Agents + Automation',
     accent: '#00aee8',
     image: '/assets/services/agentic-systems-v01.webp',

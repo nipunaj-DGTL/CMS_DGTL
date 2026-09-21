@@ -6,6 +6,12 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      deployment_scope:
+        description: CMS only by default; full-stack explicitly includes demo websites
+        type: choice
+        options: [cms-only, full-stack]
+        default: cms-only
+        required: true
       deployment_variant:
         description: Public-origin variant recorded with the image digest
         type: choice
@@ -52,6 +58,8 @@ jobs:
     permissions:
       actions: read
       contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -113,6 +121,11 @@ jobs:
               exit 2
             }
           done
+      - id: matrix
+        name: Select only the requested application images
+        env:
+          DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope || 'cms-only' }}
+        run: node .github/scripts/release-matrix.mjs >>"$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 11.21.0
@@ -136,28 +149,7 @@ jobs:
       packages: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: cms-web
-            dockerfile: apps/cms/Dockerfile
-            target: web
-            image: dgtl-cms-web
-          - name: cms-worker
-            dockerfile: apps/cms/Dockerfile
-            target: worker
-            image: dgtl-cms-worker
-          - name: cms-migrate
-            dockerfile: apps/cms/Dockerfile
-            target: migrate
-            image: dgtl-cms-migrate
-          - name: client01
-            dockerfile: apps/website/Dockerfile
-            target: web
-            image: dgtl-client01
-          - name: dgtl360
-            dockerfile: apps/dgtl360/Dockerfile
-            target: web
-            image: dgtl360
+      matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -304,6 +296,7 @@ jobs:
           echo "digest=$digest" >>"$GITHUB_OUTPUT"
       - name: Create the signed release-policy predicate
         env:
+          DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope || 'cms-only' }}
           CLIENT01_SITE_URL: ${{ inputs.client01_site_url || 'https://client01.dgtl.lk' }}
           CMS_PUBLIC_URL: ${{ inputs.cms_public_url || 'https://cms.dgtl.lk' }}
           DEPLOYMENT_VARIANT: ${{ inputs.deployment_variant || 'production' }}
@@ -320,6 +313,7 @@ jobs:
             --arg client01WebsiteKey "$CLIENT01_WEBSITE_KEY" \
             --arg cmsPublicUrl "$CMS_PUBLIC_URL" \
             --arg deploymentVariant "$DEPLOYMENT_VARIANT" \
+            --arg deploymentScope "$DEPLOYMENT_SCOPE" \
             --arg dgtl360SiteUrl "$DGTL360_SITE_URL" \
             --arg dgtl360WebsiteKey "$DGTL360_WEBSITE_KEY" \
             --arg dockerTarget "$DOCKER_TARGET" \
@@ -331,6 +325,7 @@ jobs:
               matrixTarget: $matrixTarget,
               dockerTarget: $dockerTarget,
               deploymentVariant: $deploymentVariant,
+              deploymentScope: $deploymentScope,
               cmsPublicUrl: $cmsPublicUrl,
               client01SiteUrl: $client01SiteUrl,
               client01WebsiteKey: $client01WebsiteKey,
@@ -391,6 +386,7 @@ jobs:
             "$image_reference"
       - name: Record immutable image reference
         env:
+          DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope || 'cms-only' }}
           CLIENT01_SITE_URL: ${{ inputs.client01_site_url || 'https://client01.dgtl.lk' }}
           CMS_PUBLIC_URL: ${{ inputs.cms_public_url || 'https://cms.dgtl.lk' }}
           DEPLOYMENT_VARIANT: ${{ inputs.deployment_variant || 'production' }}
@@ -409,6 +405,7 @@ jobs:
             "$DEPLOYMENT_VARIANT" "$CMS_PUBLIC_URL" "$CLIENT01_SITE_URL" "$DGTL360_SITE_URL" \
             "$CLIENT01_WEBSITE_KEY" "$DGTL360_WEBSITE_KEY" \
             >'image-digests/${{ matrix.name }}-release-metadata.env'
+          printf 'DEPLOYMENT_SCOPE=%s\n' "$DEPLOYMENT_SCOPE" >>'image-digests/${{ matrix.name }}-release-metadata.env'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: image-digest-${{ inputs.deployment_variant || 'production' }}-${{ matrix.name }}

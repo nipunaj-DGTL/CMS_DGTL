@@ -1,0 +1,50 @@
+# Optional frontend hosting. Never included by a cms-only release.
+# Apply after compose.prod.yml; secret files are required only in this mode.
+x-demo-runtime: &demo-runtime
+  init: true
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  networks:
+    app: {}
+  environment:
+    NODE_ENV: production
+    PORT: "3000"
+  expose: ["3000"]
+  depends_on:
+    cms:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/ready').then((r)=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+    interval: 15s
+    timeout: 5s
+    start_period: 20s
+    retries: 5
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-file: "5"
+      max-size: 10m
+
+services:
+  client01:
+    <<: *demo-runtime
+    image: ${CLIENT01_IMAGE:?CLIENT01_IMAGE is required for full-stack releases}
+    env_file: ["${SECRETS_DIR:-./secrets}/client01.env"]
+  dgtl360:
+    <<: *demo-runtime
+    image: ${DGTL360_IMAGE:?DGTL360_IMAGE is required for full-stack releases}
+    env_file: ["${SECRETS_DIR:-./secrets}/dgtl360.env"]
+  caddy:
+    environment:
+      CLIENT01_HOSTNAME: ${CLIENT01_HOSTNAME:-client01.dgtl.lk}
+      DGTL360_HOSTNAME: ${DGTL360_HOSTNAME:-dgtl.lk}
+      DGTL360_WWW_HOSTNAME: ${DGTL360_WWW_HOSTNAME:-www.dgtl.lk}
+    volumes:
+      - ./Caddyfile.demos:/etc/caddy/Caddyfile:ro
+    depends_on:
+      client01:
+        condition: service_healthy
+      dgtl360:
+        condition: service_healthy

@@ -10,6 +10,9 @@ RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 WORKDIR /app
 
 FROM base AS dependencies
+# Limit parallel downloads for Docker Desktop and emulated ARM64 builds.
+# Keep the frozen lockfile and pnpm's dependency-policy checks enabled.
+ARG PNPM_NETWORK_CONCURRENCY=8
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/cms/package.json apps/cms/package.json
 COPY apps/website/package.json apps/website/package.json
@@ -17,7 +20,8 @@ COPY apps/dgtl360/package.json apps/dgtl360/package.json
 COPY packages/cms-client/package.json packages/cms-client/package.json
 COPY packages/content-contracts/package.json packages/content-contracts/package.json
 RUN --mount=type=cache,id=dgtl-pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @dgtl/cms...
+    pnpm install --frozen-lockfile --filter @dgtl/cms... \
+      --network-concurrency=${PNPM_NETWORK_CONCURRENCY} --fetch-timeout=180000
 
 FROM dependencies AS source
 COPY . .
@@ -78,7 +82,19 @@ USER nextjs
 STOPSIGNAL SIGTERM
 
 FROM tooling AS worker
-CMD ["./node_modules/.bin/tsx", "src/worker.ts"]
+CMD ["node", "--import", "tsx", "src/worker.ts"]
+
+# Local Docker Desktop testing only. This does not weaken the production web
+# target's S3, scanner or email requirements and does not run a production build.
+FROM tooling AS development
+USER root
+RUN mkdir -p /app/apps/cms/.next /app/apps/cms/media \
+    && chown -R nextjs:nodejs /app/apps/cms
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+USER nextjs
+EXPOSE 3000
+CMD ["./node_modules/.bin/next", "dev", "--hostname", "0.0.0.0"]
 
 FROM tooling AS migrate
 CMD ["./node_modules/.bin/payload", "migrate"]

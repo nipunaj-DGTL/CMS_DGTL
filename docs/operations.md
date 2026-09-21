@@ -74,6 +74,14 @@ perform later credential rotation with a reviewed database runbook.
 Use cryptographically random passwords and percent-encode any URL-reserved
 characters when placing them inside `CMS_DATABASE_URL`.
 
+For DigitalOcean Managed PostgreSQL, use the administrative URL only from a
+protected operator shell with `deploy/scripts/provision-managed-postgres.sh`.
+The idempotent script creates separate `dgtl_migrator` and `dgtl_app` logins,
+removes public schema creation, grants DDL only to the migrator, and grants the
+runtime role only the DML/sequence privileges Payload needs. Rerun it after the
+first migration so existing objects and future-object defaults are both covered.
+Do not place the administrative URL in either application environment file.
+
 Frontend runtime env files use `CMS_URL=http://cms:3000` so authenticated API
 traffic stays on the private Compose network and first boot does not depend on
 Caddy already serving the public hostname. Image builds use the public CMS
@@ -318,6 +326,22 @@ and RTO. A backup that has not been restored is not release evidence.
    ClamAV rejects it, the CMS reports a safe error, and no object remains in the
    media bucket. Then upload and retrieve an approved image.
 10. Record release, migration set, artifact digest, operator, and result.
+
+After the production environment file has been mounted into the worker image,
+the operator can exercise the three external integrations without storing a test
+recipient in Git:
+
+```text
+NODE_ENV=production \
+PRODUCTION_INTEGRATION_TEST_RECIPIENT=approved-test-mailbox@example.com \
+pnpm --filter @dgtl/cms verify:production-integrations
+```
+
+The check uploads, reads and deletes one uniquely named text object; scans one
+harmless PNG-signature buffer; verifies that ClamAV rejects the harmless EICAR
+test pattern; and asks Resend to deliver one verification message. Run it only
+in secured staging first. A returned Resend delivery ID proves provider
+acceptance, while the operator must still confirm inbox arrival and links.
 
 ## Website did not update
 

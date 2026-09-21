@@ -21,6 +21,7 @@ coverage/
 /deploy/state/
 /.backups/
 /.qa/
+/qa-evidence/
 test-results/
 playwright-report/
 blob-report/
@@ -30,6 +31,13 @@ playwright/.cache/
 .cache/
 out/
 /.tmp/
+/.local/docker/
+/infra/.terraform/
+/infra/*.tfstate
+/infra/*.tfstate.*
+/infra/*.tfvars
+!/infra/*.tfvars.example
+/infra/crash.log
 *.log
 *.tsbuildinfo
 .DS_Store

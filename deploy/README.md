@@ -1,5 +1,19 @@
 # Deployment bundle
 
+## CMS-only releases (default for new installations)
+
+Use `DEPLOYMENT_SCOPE=cms-only` in the release manifest. The base Compose file
+now contains CMS, worker, migration tooling and optional CMS ingress only.
+Use `release.staging.env.example` and follow
+[`docs/CMS_ONLY_STAGING_RUNBOOK.md`](../docs/CMS_ONLY_STAGING_RUNBOOK.md).
+Demo websites are optional via `DEPLOYMENT_SCOPE=full-stack`, which adds
+`compose.demos.yml`. Legacy manifests without a scope retain full-stack
+meaning. Existing topology cannot be switched by an ordinary deploy/rollback.
+
+The scope determines which application image signatures, secret files and
+website smoke checks are required. All applicable release gates remain active.
+The historical full-stack examples below apply only when that scope is chosen.
+
 This directory is the server-side deployment interface for the DGTL CMS stack.
 It turns the current application into a reproducible release candidate, but it
 does not approve a public launch by itself; use the release gates in

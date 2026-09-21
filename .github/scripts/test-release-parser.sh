@@ -70,6 +70,38 @@ fi
 
 load_release "${repository_dir}/deploy/release.env.example"
 validate_release_settings
+[[ "${DEPLOYMENT_SCOPE}" == cms-only ]]
+[[ "$(application_services | paste -sd, -)" == 'cms,worker' ]]
+[[ "$(application_image_keys | wc -l | tr -d ' ')" == 3 ]]
+compose_command
+[[ "${COMPOSE[*]}" != *compose.demos.yml* ]]
+if (DEPLOYMENT_SCOPE=typo validate_release_settings) 2>/dev/null; then
+  echo 'Invalid deployment scopes must be rejected.' >&2
+  exit 1
+fi
+if (DEPLOYMENT_SCOPE=full-stack validate_release_settings) 2>/dev/null; then
+  echo 'Full-stack deployment must require its frontend identities and origins.' >&2
+  exit 1
+fi
+(
+  DEPLOYMENT_SCOPE=full-stack
+  CLIENT01_ORIGIN=https://client01.dgtl.lk
+  DGTL360_ORIGIN=https://dgtl.lk
+  IMAGE_CLIENT01_SITE_URL="$CLIENT01_ORIGIN"
+  IMAGE_DGTL360_SITE_URL="$DGTL360_ORIGIN"
+  CLIENT01_WEBSITE_KEY=client-01-main
+  DGTL360_WEBSITE_KEY=client-02-main
+  CLIENT01_HOSTNAME=client01.dgtl.lk
+  DGTL360_HOSTNAME=dgtl.lk
+  DGTL360_WWW_HOSTNAME=www.dgtl.lk
+  validate_release_settings
+  [[ "$(application_image_keys | wc -l | tr -d ' ')" == 5 ]]
+  compose_command
+  [[ "${COMPOSE[*]}" == *compose.demos.yml* ]]
+  unset DEPLOYMENT_SCOPE
+  demos_enabled
+  validate_release_settings
+)
 if (HEALTH_TIMEOUT_SECONDS=179 validate_release_settings) 2>/dev/null; then
   echo 'Deployment health timeout must cover the worker cold-start proof window.' >&2
   exit 1
@@ -144,7 +176,7 @@ grep -Eq '^[[:space:]]+start_period:[[:space:]]+150s$' <<<"${worker_compose_bloc
 }
 
 deploy_script="${repository_dir}/deploy/scripts/deploy.sh"
-application_pull_line="$(grep -nF -- '--profile tools pull cms worker migrate client01 dgtl360' "${deploy_script}" | cut -d: -f1)"
+application_pull_line="$(grep -nF -- '--profile tools pull "${rollout_services[@]}" migrate' "${deploy_script}" | cut -d: -f1)"
 infrastructure_pull_line="$(grep -nF -- 'pull postgres clamav' "${deploy_script}" | cut -d: -f1)"
 edge_pull_line="$(grep -nF -- '--profile edge pull caddy' "${deploy_script}" | cut -d: -f1)"
 backup_boundary_line="$(grep -nF -- 'BACKUP_KEEP_SERVICES_QUIESCED=true' "${deploy_script}" | head -n 1 | cut -d: -f1)"

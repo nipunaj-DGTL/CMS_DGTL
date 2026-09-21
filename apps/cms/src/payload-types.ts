@@ -285,6 +285,7 @@ export interface Page {
         kicker: string;
         heading: string;
         lead: string;
+        tagline?: string | null;
         paragraphs?:
           | {
               text: string;
@@ -320,13 +321,18 @@ export interface Page {
         kicker: string;
         heading: string;
         instruction: string;
+        backLabel?: string | null;
+        profileLinkLabel?: string | null;
         portraitImage?: (number | null) | Media;
         profileImage?: (number | null) | Media;
         members?:
           | {
               number: string;
+              name?: string | null;
               role: string;
-              description: string;
+              description?: string | null;
+              image?: (number | null) | Media;
+              linkedin?: string | null;
               portraitPosition?: string | null;
               profilePosition?: string | null;
               id?: string | null;
@@ -1122,6 +1128,7 @@ export interface PagesSelect<T extends boolean = true> {
               kicker?: T;
               heading?: T;
               lead?: T;
+              tagline?: T;
               paragraphs?:
                 | T
                 | {
@@ -1161,14 +1168,19 @@ export interface PagesSelect<T extends boolean = true> {
               kicker?: T;
               heading?: T;
               instruction?: T;
+              backLabel?: T;
+              profileLinkLabel?: T;
               portraitImage?: T;
               profileImage?: T;
               members?:
                 | T
                 | {
                     number?: T;
+                    name?: T;
                     role?: T;
                     description?: T;
+                    image?: T;
+                    linkedin?: T;
                     portraitPosition?: T;
                     profilePosition?: T;
                     id?: T;

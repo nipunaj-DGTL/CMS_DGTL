@@ -85,60 +85,6 @@ services:
       NODE_ENV: production
       PAYLOAD_DB_PUSH: "false"
 
-  client01:
-    <<: *app-runtime
-    image: ${CLIENT01_IMAGE:-ghcr.io/example/dgtl-client01:replace-with-digest}
-    env_file:
-      - ${SECRETS_DIR:-./secrets}/client01.env
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    expose:
-      - "3000"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000/api/ready').then((r)=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
-      interval: 15s
-      timeout: 5s
-      start_period: 20s
-      retries: 5
-    depends_on:
-      cms:
-        condition: service_healthy
-    stop_grace_period: 30s
-
-  dgtl360:
-    <<: *app-runtime
-    image: ${DGTL360_IMAGE:-ghcr.io/example/dgtl360:replace-with-digest}
-    env_file:
-      - ${SECRETS_DIR:-./secrets}/dgtl360.env
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    expose:
-      - "3000"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000/api/ready').then((r)=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
-      interval: 15s
-      timeout: 5s
-      start_period: 20s
-      retries: 5
-    depends_on:
-      cms:
-        condition: service_healthy
-    stop_grace_period: 30s
-
   # Enable this profile on a plain VPS. A different containerized ingress must
   # join this project's app network and route by service DNS; `expose` never
   # publishes port 3000 on the host.
@@ -148,10 +94,7 @@ services:
     restart: unless-stopped
     environment:
       ACME_EMAIL: ${ACME_EMAIL:-ops@dgtl.lk}
-      CLIENT01_HOSTNAME: ${CLIENT01_HOSTNAME:-client01.dgtl.lk}
       CMS_HOSTNAME: ${CMS_HOSTNAME:-cms.dgtl.lk}
-      DGTL360_HOSTNAME: ${DGTL360_HOSTNAME:-dgtl.lk}
-      DGTL360_WWW_HOSTNAME: ${DGTL360_WWW_HOSTNAME:-www.dgtl.lk}
     ports:
       - "80:80"
       - "443:443"
@@ -164,10 +107,6 @@ services:
       - caddy_data:/data
     depends_on:
       cms:
-        condition: service_healthy
-      client01:
-        condition: service_healthy
-      dgtl360:
         condition: service_healthy
     logging:
       driver: json-file

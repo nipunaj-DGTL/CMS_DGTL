@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, master, 'codex/**']
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -44,6 +44,10 @@ jobs:
           persist-credentials: false
       - name: Enforce immutable GitHub Action references
         run: node .github/scripts/validate-action-pins.mjs
+      - name: Check CMS-only and optional demo release contracts
+        run: node --test .github/scripts/release-scope.test.mjs
+      - name: Reject unsafe production configuration
+        run: node --test .github/scripts/production-preflight.test.mjs
       - name: Validate release shell and rendered Compose model
         env:
           CADDY_IMAGE: docker.io/library/caddy@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -54,6 +58,9 @@ jobs:
           CMS_WORKER_IMAGE: ghcr.io/example/dgtl-cms-worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           DGTL360_IMAGE: ghcr.io/example/dgtl360@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           POSTGRES_IMAGE: docker.io/library/postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          CLIENT01_HOSTNAME: client01.example.test
+          DGTL360_HOSTNAME: dgtl.example.test
+          DGTL360_WWW_HOSTNAME: www.dgtl.example.test
         run: |
           for example in deploy/secrets/*.env.example; do
             install -m 600 "$example" "${example%.example}"
@@ -62,6 +69,11 @@ jobs:
           bash .github/scripts/test-release-parser.sh
           docker compose \
             -f deploy/compose.prod.yml \
+            -f deploy/compose.self-hosted-db.yml \
+            --profile tools --profile edge config --quiet
+          docker compose \
+            -f deploy/compose.prod.yml \
+            -f deploy/compose.demos.yml \
             -f deploy/compose.self-hosted-db.yml \
             --profile tools --profile edge config --quiet
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
@@ -180,6 +192,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Apply only committed migrations
         run: pnpm migrate
+      - name: Query the complete production collection and version schema
+        run: timeout 120s pnpm --filter @dgtl/cms verify:migrated-schema
       - run: pnpm --filter @dgtl/cms build
       - name: Prove the current CMS starts on the migrated schema
         run: |
@@ -248,6 +262,115 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  cms_containers:
+    name: CMS-only Docker build and migration boot
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 # 16-alpine, 2026-08-16
+        env:
+          POSTGRES_DB: dgtl_cms_containers
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dgtl_cms_containers"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CMS_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dgtl_cms_containers
+      CMS_PUBLIC_URL: http://127.0.0.1:3200
+      CMS_MEDIA_ACCESS_KEY_ID: ci-build-placeholder
+      CMS_MEDIA_BUCKET: ci-build-placeholder
+      CMS_MEDIA_ENDPOINT: http://127.0.0.1:9000
+      CMS_MEDIA_SECRET_ACCESS_KEY: ci-build-placeholder
+      CMS_MEDIA_STORAGE: s3
+      CMS_MEDIA_SCAN_MODE: clamav
+      CLAMAV_HOST: 127.0.0.1
+      CMS_EMAIL_PROVIDER: resend
+      CMS_EMAIL_FROM_ADDRESS: cms@example.test
+      CMS_EMAIL_FROM_NAME: DGTL CMS CI
+      RESEND_API_KEY: ci-build-placeholder
+      NODE_ENV: production
+      PAYLOAD_DB_PUSH: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Build all three CMS targets without demo website source
+        run: |
+          for target in web worker migrate; do
+            docker build --file apps/cms/Dockerfile --target "$target" --tag "dgtl-cms-ci:$target" .
+          done
+      - name: Migrate a clean database and prove container health
+        run: |
+          runtime_env=()
+          for key in CMS_DATABASE_URL CMS_PUBLIC_URL PAYLOAD_SECRET PAYLOAD_DB_PUSH NODE_ENV \
+            CMS_PREVIEW_SIGNING_SECRET CMS_WEBSITE_READ_TOKENS CMS_REVALIDATION_SECRETS \
+            CMS_MEDIA_ACCESS_KEY_ID CMS_MEDIA_BUCKET CMS_MEDIA_ENDPOINT CMS_MEDIA_SECRET_ACCESS_KEY \
+            CMS_MEDIA_STORAGE CMS_MEDIA_SCAN_MODE CLAMAV_HOST CMS_EMAIL_PROVIDER \
+            CMS_EMAIL_FROM_ADDRESS CMS_EMAIL_FROM_NAME RESEND_API_KEY; do
+            runtime_env+=(--env "$key")
+          done
+          docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate
+          timeout 120s docker run --rm --network host "${runtime_env[@]}" dgtl-cms-ci:migrate ./node_modules/.bin/tsx src/scripts/verify-migrated-schema.ts
+          docker run --detach --name cms-ci-web --network host "${runtime_env[@]}" --env PORT=3200 --env DEBUG=next:start-server dgtl-cms-ci:web
+          docker run --detach --name cms-ci-worker --network host "${runtime_env[@]}" dgtl-cms-ci:worker
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3200/api/health >/dev/null && \
+               curl --fail --silent http://127.0.0.1:3001/health >/dev/null; then
+              curl --fail --silent http://127.0.0.1:3200/admin/login >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Require clean worker and web shutdown, then verify restart
+        run: |
+          mkdir -p container-evidence
+          for name in cms-ci-worker cms-ci-web; do
+            docker stop --time 30 "$name"
+            docker inspect --format '{{.Name}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' "$name" | tee -a container-evidence/shutdown.txt
+            expected_exit=0
+            if [[ "$name" == cms-ci-web ]]; then
+              # Next 16.3.4 exits 143 only after its SIGTERM cleanup path.
+              # Require the completion diagnostic, not just the signal code.
+              expected_exit=143
+              docker logs "$name" >container-evidence/web-shutdown.log 2>&1
+              grep -q 'start-server process cleanup finished' container-evidence/web-shutdown.log
+            fi
+            test "$(docker inspect --format '{{.State.ExitCode}}' "$name")" = "$expected_exit"
+            test "$(docker inspect --format '{{.State.OOMKilled}}' "$name")" = false
+          done
+          docker start cms-ci-web cms-ci-worker
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3200/api/health >/dev/null && \
+               curl --fail --silent http://127.0.0.1:3001/health >/dev/null; then
+              curl --fail --silent http://127.0.0.1:3200/admin/login >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Verify worker lock ownership and lifecycle on an isolated database
+        run: node scripts/test-worker-lifecycle.mjs dgtl-cms-ci:worker
+      - name: Capture Docker runtime evidence
+        if: always()
+        run: |
+          mkdir -p container-evidence
+          docker logs cms-ci-web >container-evidence/cms.log 2>&1 || true
+          docker logs cms-ci-worker >container-evidence/worker.log 2>&1 || true
+          docker ps --all >container-evidence/containers.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: cms-container-evidence
+          path: |
+            container-evidence/
+            .qa/worker-lifecycle-*/
+          retention-days: 14
+
   security:
     name: Dependency, source and SBOM checks
     runs-on: ubuntu-24.04
@@ -257,15 +380,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Review newly introduced dependencies
-        if: github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED == 'true'
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           allow-ghsas: GHSA-67mh-4wv8-2f99, GHSA-jg8r-5jh2-v2xj
           fail-on-severity: moderate
           show-openssf-scorecard: true
       - name: Explain private-repository dependency review coverage
-        if: github.event_name == 'pull_request' && github.event.repository.visibility != 'public'
-        run: echo 'GitHub Dependency Review requires paid private-repository security features; the full production lockfile audit below remains mandatory.'
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED != 'true'
+        run: echo 'GitHub Dependency Review is not enabled for this repository; the full production lockfile audit below remains mandatory. Set DEPENDENCY_REVIEW_ENABLED=true only after the repository dependency graph supports the action.'
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 11.21.0
