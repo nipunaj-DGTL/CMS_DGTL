@@ -1,9 +1,19 @@
+resource "digitalocean_vpc" "cms" {
+  name        = "${var.droplet_name}-vpc"
+  region      = var.region
+  ip_range    = var.vpc_ip_range
+  description = "Private network for the ${var.environment} DGTL CMS and PostgreSQL cluster"
+}
+
+data "cloudflare_ip_ranges" "origin" {}
+
 resource "digitalocean_droplet" "cms" {
   name       = var.droplet_name
   region     = var.region
   size       = var.droplet_size
   image      = "ubuntu-24-04-x64"
   ssh_keys   = [var.ssh_key_id]
+  vpc_uuid   = digitalocean_vpc.cms.id
   monitoring = true
   backups    = true
   backup_policy {
@@ -17,6 +27,9 @@ resource "digitalocean_droplet" "cms" {
   tags = ["dgtl-cms", var.environment]
 }
 
+# Public egress is intentionally limited to DNS, NTP, HTTP and HTTPS because
+# the required package, registry, R2 and Resend endpoints use dynamic IP ranges.
+#trivy:ignore:AVD-DIG-0003:exp:2027-03-31
 resource "digitalocean_firewall" "cms" {
   name        = "${var.droplet_name}-firewall"
   droplet_ids = [digitalocean_droplet.cms.id]
@@ -28,42 +41,68 @@ resource "digitalocean_firewall" "cms" {
   }
 
   inbound_rule {
-    protocol         = "tcp"
-    port_range       = "80"
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    protocol   = "tcp"
+    port_range = "80"
+    source_addresses = concat(
+      data.cloudflare_ip_ranges.origin.ipv4_cidrs,
+      data.cloudflare_ip_ranges.origin.ipv6_cidrs,
+    )
   }
 
   inbound_rule {
-    protocol         = "tcp"
-    port_range       = "443"
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    protocol   = "tcp"
+    port_range = "443"
+    source_addresses = concat(
+      data.cloudflare_ip_ranges.origin.ipv4_cidrs,
+      data.cloudflare_ip_ranges.origin.ipv6_cidrs,
+    )
   }
 
   outbound_rule {
     protocol              = "tcp"
-    port_range            = "1-65535"
+    port_range            = "53"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
     protocol              = "udp"
-    port_range            = "1-65535"
+    port_range            = "53"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
-    protocol              = "icmp"
+    protocol              = "udp"
+    port_range            = "123"
     destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "80"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "443"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = tostring(digitalocean_database_cluster.cms.port)
+    destination_addresses = [digitalocean_vpc.cms.ip_range]
   }
 }
 
 resource "digitalocean_database_cluster" "cms" {
-  name       = var.database_name
-  engine     = "pg"
-  version    = "16"
-  region     = var.region
-  size       = var.database_size
-  node_count = 1
+  name                 = var.database_name
+  engine               = "pg"
+  version              = "16"
+  region               = var.region
+  size                 = var.database_size
+  node_count           = 1
+  private_network_uuid = digitalocean_vpc.cms.id
 }
 
 resource "digitalocean_database_db" "cms" {

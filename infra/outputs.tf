@@ -2,6 +2,10 @@ output "droplet_id" {
   value = digitalocean_droplet.cms.id
 }
 
+output "vpc_id" {
+  value = digitalocean_vpc.cms.id
+}
+
 output "droplet_ipv4" {
   value = digitalocean_droplet.cms.ipv4_address
 }

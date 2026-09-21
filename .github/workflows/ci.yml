@@ -380,15 +380,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Review newly introduced dependencies
-        if: github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED == 'true'
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           allow-ghsas: GHSA-67mh-4wv8-2f99, GHSA-jg8r-5jh2-v2xj
           fail-on-severity: moderate
           show-openssf-scorecard: true
       - name: Explain private-repository dependency review coverage
-        if: github.event_name == 'pull_request' && github.event.repository.visibility != 'public'
-        run: echo 'GitHub Dependency Review requires paid private-repository security features; the full production lockfile audit below remains mandatory.'
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED != 'true'
+        run: echo 'GitHub Dependency Review is not enabled for this repository; the full production lockfile audit below remains mandatory. Set DEPENDENCY_REVIEW_ENABLED=true only after the repository dependency graph supports the action.'
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 11.21.0

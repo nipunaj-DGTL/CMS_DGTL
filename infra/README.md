@@ -5,11 +5,19 @@ creates DigitalOcean compute/database resources and Cloudflare DNS/R2
 resources. It does not deploy application containers and it never runs
 `terraform apply` automatically.
 
-The Droplet is bootstrapped with a dedicated non-root deployment account,
-key-only SSH, Docker Compose, unattended security updates and the protected
-`/opt/dgtl` directory layout. Terraform also configures CPU, memory and disk
-alerts plus multi-region HTTPS availability, latency and certificate-expiry
-alerts. The alert address must already be verified on the DigitalOcean account.
+The Droplet and managed database share a dedicated private VPC. The Droplet is
+bootstrapped with a dedicated non-root deployment account, key-only SSH, Docker
+Compose, unattended security updates and the protected `/opt/dgtl` directory
+layout. Terraform also configures CPU, memory and disk alerts plus multi-region
+HTTPS availability, latency and certificate-expiry alerts. The alert address
+must already be verified on the DigitalOcean account.
+
+Public HTTP and HTTPS ingress is restricted to Cloudflare's current published
+origin ranges; direct-to-origin web traffic is denied. Cloud-firewall egress is
+restricted to DNS, NTP, HTTP, HTTPS, and the managed PostgreSQL port inside the
+private VPC. Trivy's any-destination warning is locally waived until 2027-03-31
+only for the required DNS/NTP/web providers, whose addresses are not stable
+enough for IP allowlisting. Review the waiver before that date.
 
 Before applying, create narrowly scoped DigitalOcean and Cloudflare API tokens,
 choose a region, and configure encrypted remote Terraform state. Never commit

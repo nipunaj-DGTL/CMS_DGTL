@@ -25,6 +25,17 @@ variable "region" {
   description = "DigitalOcean region for the Droplet and managed PostgreSQL cluster."
 }
 
+variable "vpc_ip_range" {
+  type        = string
+  default     = "10.20.0.0/24"
+  description = "Dedicated RFC1918 CIDR for the CMS Droplet and managed database. It must not overlap another VPC."
+
+  validation {
+    condition     = can(cidrhost(var.vpc_ip_range, 0))
+    error_message = "vpc_ip_range must be a valid CIDR block."
+  }
+}
+
 variable "environment" {
   type        = string
   default     = "staging"
