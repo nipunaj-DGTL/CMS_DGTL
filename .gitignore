@@ -46,3 +46,7 @@ out/
 /document.documentElement.clientWidth
 /technology-education-poster*.png
 /technology-poster-color-*.png
+/output/
+/tmp/
+/scripts/build-ict-poster-*.ps1
+/scripts/render-exact-sinhala.ps1
