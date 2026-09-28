@@ -1,4 +1,5 @@
 .git
+/.local/
 .next
 .npm-cache
 .pnpm-store

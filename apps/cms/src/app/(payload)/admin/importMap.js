@@ -24,7 +24,10 @@ import { StrikethroughFeatureClient as StrikethroughFeatureClient_e70f5e05f09f93
 import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
+import { DgtlIcon as DgtlIcon_f0d64af32d36af06e98b62f0c0c5283a } from '../../../admin-components/DgtlBranding'
+import { DgtlLogo as DgtlLogo_f0d64af32d36af06e98b62f0c0c5283a } from '../../../admin-components/DgtlBranding'
 import { default as default_37bb7abe79f5fd50b787d0811619765f } from '../../../admin-components/DgtlDashboard'
+import { default as default_40de301cb83a05c8ee596b7f94ffc54e } from '../../../admin-components/DgtlSsoLogin'
 import { TenantSelector as TenantSelector_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
 import { default as default_4ffe0408d68d9f3b3f9d330a59458c0b } from '../../../admin-components/TenantContextBanner'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
@@ -59,7 +62,10 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#UnderlineFeatureClient": UnderlineFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
+  "./admin-components/DgtlBranding#DgtlIcon": DgtlIcon_f0d64af32d36af06e98b62f0c0c5283a,
+  "./admin-components/DgtlBranding#DgtlLogo": DgtlLogo_f0d64af32d36af06e98b62f0c0c5283a,
   "./admin-components/DgtlDashboard#default": default_37bb7abe79f5fd50b787d0811619765f,
+  "./admin-components/DgtlSsoLogin#default": default_40de301cb83a05c8ee596b7f94ffc54e,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelector": TenantSelector_d6d5f193a167989e2ee7d14202901e62,
   "./admin-components/TenantContextBanner#default": default_4ffe0408d68d9f3b3f9d330a59458c0b,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,

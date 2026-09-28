@@ -4,6 +4,7 @@ import * as migration_20260907_133000_page_typography from './20260907_133000_pa
 import * as migration_20260908_093315_production_hardening from './20260908_093315_production_hardening';
 import * as migration_20260910_091352_dgtl360_v2_profiles from './20260910_091352_dgtl360_v2_profiles';
 import * as migration_20260911_073822_production_auth_verification from './20260911_073822_production_auth_verification';
+import * as migration_20260928_054306_cms_sso from './20260928_054306_cms_sso';
 
 export const migrations = [
   {
@@ -34,6 +35,11 @@ export const migrations = [
   {
     up: migration_20260911_073822_production_auth_verification.up,
     down: migration_20260911_073822_production_auth_verification.down,
-    name: '20260911_073822_production_auth_verification'
+    name: '20260911_073822_production_auth_verification',
+  },
+  {
+    up: migration_20260928_054306_cms_sso.up,
+    down: migration_20260928_054306_cms_sso.down,
+    name: '20260928_054306_cms_sso'
   },
 ];

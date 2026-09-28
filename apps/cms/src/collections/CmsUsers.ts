@@ -12,6 +12,10 @@ import {
   type DgtlUserLike,
 } from '../access/policy'
 import { preventLastClientAdminDelete, protectUserAssignments } from '../hooks/users'
+import { requiresSSO, SSO_STRATEGY } from '../sso/config'
+import { protectSSOMapping } from '../sso/mapping'
+import { ssoStrategy, type SSOUser } from '../sso/sessions'
+import { ssoAuthEndpoints } from '../sso/endpoints'
 
 const selfOrCompanyAccess = async (req: PayloadRequest): Promise<boolean | Where> => {
   const user = await currentUserForRequest(req)
@@ -47,12 +51,18 @@ export const CmsUsers: CollectionConfig = {
     useAsTitle: 'displayName',
   },
   auth: {
+    strategies: [ssoStrategy],
     lockTime: 15 * 60 * 1000,
     maxLoginAttempts: 5,
     tokenExpiration: 8 * 60 * 60,
     verify: process.env.NODE_ENV === 'production',
   },
+  endpoints: ssoAuthEndpoints,
   fields: [
+    { name: 'ssoIssuer', type: 'text', access: { create: superAdminFieldAccess, update: superAdminFieldAccess, read: companyFieldAccess },
+      admin: { description: 'Trusted central issuer. Set together with SSO subject; never use an email address.' } },
+    { name: 'ssoSubject', type: 'text', access: { create: superAdminFieldAccess, update: superAdminFieldAccess, read: companyFieldAccess } },
+    { name: 'ssoIdentityKey', type: 'text', unique: true, index: true, hidden: true },
     { name: 'displayName', type: 'text', required: true, saveToJWT: true },
     {
       name: 'accountType',
@@ -100,6 +110,7 @@ export const CmsUsers: CollectionConfig = {
   hooks: {
     beforeLogin: [
       async ({ req, user }) => {
+        if (requiresSSO(user)) throw new APIError('Use DGTL single sign-on for this account.', 403)
         if ((user as DgtlUserLike).status !== 'active') {
           throw new APIError('This account is not active. Contact your administrator.', 403)
         }
@@ -124,7 +135,13 @@ export const CmsUsers: CollectionConfig = {
         return user
       },
     ],
-    beforeChange: [protectUserAssignments],
-    beforeDelete: [preventLastClientAdminDelete],
+    me: [({ args, user }) => {
+      const authenticated = args.req.user as SSOUser | null
+      if (authenticated?._strategy === SSO_STRATEGY) return { user, exp: authenticated._ssoExpiresAt }
+    }],
+    beforeChange: [protectUserAssignments, protectSSOMapping],
+    beforeDelete: [preventLastClientAdminDelete, async ({ id, req }) => {
+      await req.payload.delete({ collection: 'cms-sso-sessions', req, overrideAccess: true, where: { user: { equals: id } } })
+    }],
   },
 }

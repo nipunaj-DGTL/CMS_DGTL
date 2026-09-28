@@ -32,6 +32,7 @@ playwright/.cache/
 out/
 /.tmp/
 /.local/docker/
+/.local/integrations/
 /infra/.terraform/
 /infra/*.tfstate
 /infra/*.tfstate.*
