@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     'dgtl-tenants': DgtlTenant;
     'cms-users': CmsUser;
+    'cms-sso-sessions': CmsSsoSession;
     websites: Website;
     pages: Page;
     posts: Post;
@@ -87,6 +88,7 @@ export interface Config {
   collectionsSelect: {
     'dgtl-tenants': DgtlTenantsSelect<false> | DgtlTenantsSelect<true>;
     'cms-users': CmsUsersSelect<false> | CmsUsersSelect<true>;
+    'cms-sso-sessions': CmsSsoSessionsSelect<false> | CmsSsoSessionsSelect<true>;
     websites: WebsitesSelect<false> | WebsitesSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
@@ -510,6 +512,12 @@ export interface Page {
  */
 export interface CmsUser {
   id: number;
+  /**
+   * Trusted central issuer. Set together with SSO subject; never use an email address.
+   */
+  ssoIssuer?: string | null;
+  ssoSubject?: string | null;
+  ssoIdentityKey?: string | null;
   displayName: string;
   accountType: 'company' | 'client';
   companyRoles?: 'company-super-admin'[] | null;
@@ -542,6 +550,21 @@ export interface CmsUser {
     | null;
   password?: string | null;
   collection: 'cms-users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "cms-sso-sessions".
+ */
+export interface CmsSsoSession {
+  id: number;
+  keyHash: string;
+  user: number | CmsUser;
+  issuer: string;
+  subject: string;
+  encryptedAccessToken: string;
+  expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1020,6 +1043,9 @@ export interface DgtlTenantsSelect<T extends boolean = true> {
  * via the `definition` "cms-users_select".
  */
 export interface CmsUsersSelect<T extends boolean = true> {
+  ssoIssuer?: T;
+  ssoSubject?: T;
+  ssoIdentityKey?: T;
   displayName?: T;
   accountType?: T;
   companyRoles?: T;
@@ -1050,6 +1076,20 @@ export interface CmsUsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "cms-sso-sessions_select".
+ */
+export interface CmsSsoSessionsSelect<T extends boolean = true> {
+  keyHash?: T;
+  user?: T;
+  issuer?: T;
+  subject?: T;
+  encryptedAccessToken?: T;
+  expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

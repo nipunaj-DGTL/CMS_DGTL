@@ -1,5 +1,6 @@
 import type { MultiTenantPluginConfig } from '@payloadcms/plugin-multi-tenant/types'
 import type { Access, FieldAccess, PayloadRequest } from 'payload'
+import { requiresSSO, SSO_STRATEGY } from '../sso/config'
 
 export const companyRoles = ['company-super-admin'] as const
 export const clientRoles = ['client-admin'] as const
@@ -13,6 +14,8 @@ export interface TenantAssignment {
 }
 
 export interface DgtlUserLike {
+  ssoIssuer?: string | null
+  ssoSubject?: string | null
   accountType?: 'client' | 'company' | 'service' | null
   companyRoles?: CompanyRole[] | null
   id?: number | string
@@ -72,13 +75,15 @@ export const currentUserForRequest = async (
   if (!userID) return null
 
   try {
-    return (await req.payload.findByID({
+    const current = (await req.payload.findByID({
       collection: 'cms-users',
       depth: 0,
       id: userID,
       overrideAccess: true,
       req: req as PayloadRequest,
     })) as DgtlUserLike
+    if (requiresSSO(current) && (req.user as { _strategy?: string } | null)?._strategy !== SSO_STRATEGY) return null
+    return current
   } catch {
     // A deleted account, unavailable lookup, or malformed session must never
     // fall back to the stale JWT claims.

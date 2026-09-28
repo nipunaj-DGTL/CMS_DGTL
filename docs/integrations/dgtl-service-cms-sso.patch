@@ -1,0 +1,201 @@
+diff --git a/.env.example b/.env.example
+index 2468825..83738b3 100644
+--- a/.env.example
++++ b/.env.example
+@@ -4,3 +4,7 @@ API_URL=http://localhost:4000/v1
+ # Server-only first-party OAuth allowlist. Use a separate client for development.
+ DGTL_OAUTH_SEO_CLIENT_ID=
+ DGTL_OAUTH_SEO_CALLBACK_URLS=https://seo.dgtl.lk/api/auth/oauth2/callback/dgtl-sso
++# CMS has a separate OAuth client. Set BOTH values when enabling this service.
++DGTL_OAUTH_CMS_CLIENT_ID=
++DGTL_OAUTH_CMS_CALLBACK_URLS=
++# Production callback: https://cms.dgtl.lk/sso/callback
+diff --git a/src/app/(portal)/admin/page.tsx b/src/app/(portal)/admin/page.tsx
+index 27fdc4f..3d23974 100644
+--- a/src/app/(portal)/admin/page.tsx
++++ b/src/app/(portal)/admin/page.tsx
+@@ -5,7 +5,7 @@ import { AppHeader } from '@/components/app-header'
+ import { getAdminClients } from '@/lib/api'
+ import { requireViewer } from '@/lib/auth'
+ import { DEMO_CLIENTS } from '@/lib/demo-data'
+-import { SERVICE_CATALOG } from '@/lib/service-catalog'
++import { getDashboardServices, SERVICE_CATALOG } from '@/lib/service-catalog'
+ import { updateClientAction } from './actions'
+ 
+ export const metadata: Metadata = { title: 'Admin console' }
+@@ -21,6 +21,9 @@ export default async function AdminDashboardPage() {
+   const clients = isDemo ? DEMO_CLIENTS : await getAdminClients()
+   const activeCount = clients.filter((client) => client.status === 'active').length
+   const assignedCount = clients.filter((client) => client.services.length > 0).length
++  const cms = !isDemo && viewer.status === 'active'
++    ? getDashboardServices(viewer.services).find((service) => service.key === 'cms' && service.url)
++    : undefined
+ 
+   return (
+     <main className="portal-page admin-portal">
+@@ -41,6 +44,7 @@ export default async function AdminDashboardPage() {
+         </div>
+ 
+         <div className="admin-stats">
++          {cms?.url ? <a className="secondary-button" href={cms.url}>Open my CMS access</a> : null}
+           <article><span><Users size={20} /></span><div><strong>{clients.length}</strong><small>Total clients</small></div></article>
+           <article><span><ShieldCheck size={20} /></span><div><strong>{activeCount}</strong><small>Active accounts</small></div></article>
+           <article><span><Search size={20} /></span><div><strong>{assignedCount}</strong><small>With services</small></div></article>
+diff --git a/src/app/oauth/consent/route.ts b/src/app/oauth/consent/route.ts
+index 722f2c2..92339f4 100644
+--- a/src/app/oauth/consent/route.ts
++++ b/src/app/oauth/consent/route.ts
+@@ -1,12 +1,12 @@
+ import { NextResponse } from 'next/server'
+ import { createClient } from '@/lib/supabase/server'
+ import { getViewer } from '@/lib/api'
+-import { allowedSeoCallback, allowedSeoScopes } from '@/lib/oauth-policy'
++import { allowedSeoCallback, allowedSeoScopes, approvedApplication, trustedApplications } from '@/lib/oauth-policy'
+ 
+ export const dynamic = 'force-dynamic'
+ 
+ function failure(status: number, message: string) {
+-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><title>DGTL service access</title><main><h1>Unable to open SEO</h1><p>${message}</p><a href="/user">Return to My services</a></main></html>`, {
++  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><title>DGTL service access</title><main><h1>Unable to open DGTL service</h1><p>${message}</p><a href="/user">Return to My services</a></main></html>`, {
+     status,
+     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
+   })
+@@ -16,13 +16,12 @@ export async function GET(request: Request) {
+   const url = new URL(request.url)
+   const authorizationId = url.searchParams.get('authorization_id')
+   if (!authorizationId || !/^[a-zA-Z0-9_-]{1,200}$/.test(authorizationId)) {
+-    return failure(400, 'This authorization request is invalid. Open SEO again from My services.')
+-  }
+-  if (!process.env.DGTL_OAUTH_SEO_CLIENT_ID || !process.env.DGTL_OAUTH_SEO_CALLBACK_URLS) {
+-    return failure(503, 'DGTL single sign-on is not configured yet. Please contact your administrator.')
++    return failure(400, 'This authorization request is invalid. Open the tool again from My services.')
+   }
+ 
+   try {
++    const applications = trustedApplications(process.env)
++    if (!applications.length) return failure(503, 'DGTL single sign-on is not configured yet.')
+     const supabase = await createClient()
+     const { data: identity, error: identityError } = await supabase.auth.getUser()
+     if (identityError || !identity.user) {
+@@ -33,27 +32,28 @@ export async function GET(request: Request) {
+ 
+     // Use the real backend, never the portal's demo session.
+     const viewer = await getViewer()
+-    if (viewer.id !== identity.user.id || viewer.status !== 'active' || !viewer.services.some((service) => service.key === 'seo')) {
+-      return failure(403, 'Your account does not have active SEO access. Please contact your administrator.')
++    if (viewer.id !== identity.user.id || viewer.status !== 'active') {
++      return failure(403, 'Your account is not active. Please contact your administrator.')
+     }
+     const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId)
+-    if (error || !data) return failure(400, 'This authorization request expired. Open SEO again from My services.')
++    if (error || !data) return failure(400, 'This authorization request expired. Open the tool again from My services.')
+ 
+-    const callbacks = process.env.DGTL_OAUTH_SEO_CALLBACK_URLS
+     if ('redirect_url' in data) {
+-      if (!allowedSeoCallback(data.redirect_url, callbacks)) return failure(403, 'This application is not an approved DGTL service.')
++      const app = approvedApplication(applications, data.redirect_url)
++      if (!app || !viewer.services.some((service) => service.key === app.key)) return failure(403, 'This application is not enabled for your account.')
+       const response = NextResponse.redirect(data.redirect_url)
+       response.headers.set('Cache-Control', 'no-store')
+       response.headers.set('Referrer-Policy', 'no-referrer')
+       return response
+     }
+-    if (data.client.id !== process.env.DGTL_OAUTH_SEO_CLIENT_ID || data.user.id !== identity.user.id ||
+-        !allowedSeoScopes(data.scope) || !allowedSeoCallback(data.redirect_uri, callbacks)) {
++    const app = approvedApplication(applications, data.redirect_uri, data.client.id)
++    if (!app || data.user.id !== identity.user.id || !allowedSeoScopes(data.scope) ||
++        !viewer.services.some((service) => service.key === app.key)) {
+       return failure(403, 'This application or permission request is not approved for automatic DGTL sign-in.')
+     }
+     const approved = await supabase.auth.oauth.approveAuthorization(authorizationId, { skipBrowserRedirect: true })
+-    if (approved.error || !approved.data || !allowedSeoCallback(approved.data.redirect_url, callbacks)) {
+-      return failure(400, 'Authorization could not finish. Open SEO again from My services.')
++    if (approved.error || !approved.data || !allowedSeoCallback(approved.data.redirect_url, app.callbacks)) {
++      return failure(400, 'Authorization could not finish. Open the tool again from My services.')
+     }
+     const response = NextResponse.redirect(approved.data.redirect_url)
+     response.headers.set('Cache-Control', 'no-store')
+diff --git a/src/lib/oauth-policy.ts b/src/lib/oauth-policy.ts
+index f266f0e..3c0e1d4 100644
+--- a/src/lib/oauth-policy.ts
++++ b/src/lib/oauth-policy.ts
+@@ -17,3 +17,31 @@ export function allowedSeoScopes(scope: string): boolean {
+   const scopes = scope.split(/\s+/).filter(Boolean)
+   return scopes.includes('openid') && scopes.every((item) => ['openid', 'email', 'profile'].includes(item))
+ }
++
++export interface TrustedApplication { key: 'cms' | 'seo'; clientID: string; callbacks: string }
++
++export function trustedApplications(env: Record<string, string | undefined>): TrustedApplication[] {
++  const applications: TrustedApplication[] = []
++  const seenCallbacks = new Set<string>()
++  const seenClients = new Set<string>()
++  for (const key of ['cms', 'seo'] as const) {
++    const clientID = env[`DGTL_OAUTH_${key.toUpperCase()}_CLIENT_ID`]
++    const callbacks = env[`DGTL_OAUTH_${key.toUpperCase()}_CALLBACK_URLS`]
++    if (!clientID && !callbacks) continue
++    if (!clientID || !callbacks || seenClients.has(clientID)) throw new Error('Invalid OAuth application configuration')
++    seenClients.add(clientID)
++    for (const callback of callbacks.split(',').map((item) => item.trim())) {
++      if (!allowedSeoCallback(callback, callback)) throw new Error('Invalid OAuth callback configuration')
++      const normalized = new URL(callback).href
++      if (seenCallbacks.has(normalized)) throw new Error('OAuth callbacks must belong to exactly one application')
++      seenCallbacks.add(normalized)
++    }
++    applications.push({ key, clientID, callbacks })
++  }
++  return applications
++}
++
++export function approvedApplication(apps: TrustedApplication[], callback: string, clientID?: string) {
++  const matches = apps.filter((app) => (clientID === undefined || app.clientID === clientID) && allowedSeoCallback(callback, app.callbacks))
++  return matches.length === 1 ? matches[0] : undefined
++}
+diff --git a/src/lib/service-catalog.ts b/src/lib/service-catalog.ts
+index b27a12b..8e6db13 100644
+--- a/src/lib/service-catalog.ts
++++ b/src/lib/service-catalog.ts
+@@ -20,8 +20,8 @@ export function getDashboardServices(assigned: ServiceAccess[]) {
+     // this browser still has another user's SEO session.
+     return {
+       ...service,
+-      url: service.key === 'seo' && url && new URL(url).origin === 'https://seo.dgtl.lk'
+-        ? 'https://seo.dgtl.lk/sso'
++      url: ['cms', 'seo'].includes(service.key) && url && new URL(url).origin === `https://${service.key}.dgtl.lk`
++        ? `https://${service.key}.dgtl.lk/sso`
+         : url,
+     }
+   })
+diff --git a/tests/cms-sso.test.mjs b/tests/cms-sso.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/tests/cms-sso.test.mjs
+@@ -0,0 +1,28 @@
++import assert from 'node:assert/strict'
++import { test } from 'node:test'
++import { trustedApplications, approvedApplication } from '../src/lib/oauth-policy.ts'
++import { getDashboardServices } from '../src/lib/service-catalog.ts'
++
++const env = {
++  DGTL_OAUTH_CMS_CLIENT_ID: 'cms-client', DGTL_OAUTH_CMS_CALLBACK_URLS: 'https://cms.dgtl.lk/sso/callback',
++  DGTL_OAUTH_SEO_CLIENT_ID: 'seo-client', DGTL_OAUTH_SEO_CALLBACK_URLS: 'https://seo.dgtl.lk/callback',
++}
++test('CMS launch always establishes the current central identity', () => {
++  const result = getDashboardServices([{ key: 'cms', name: 'CMS', description: '', url: 'https://cms.dgtl.lk/admin' }])
++  assert.equal(result[0].url, 'https://cms.dgtl.lk/sso')
++})
++test('CMS and SEO use separate exact client/callback bindings', () => {
++  const apps = trustedApplications(env)
++  assert.equal(approvedApplication(apps, env.DGTL_OAUTH_CMS_CALLBACK_URLS, 'cms-client').key, 'cms')
++  assert.equal(approvedApplication(apps, env.DGTL_OAUTH_CMS_CALLBACK_URLS, 'seo-client'), undefined)
++  assert.equal(approvedApplication(apps, `${env.DGTL_OAUTH_CMS_CALLBACK_URLS}?code=single-use`).key, 'cms')
++  assert.equal(approvedApplication(apps, 'https://evil.test/sso/callback'), undefined)
++})
++test('ambiguous registrations and partial configuration fail closed', () => {
++  assert.throws(() => trustedApplications({ ...env, DGTL_OAUTH_CMS_CLIENT_ID: 'seo-client' }))
++  assert.throws(() => trustedApplications({ ...env, DGTL_OAUTH_CMS_CALLBACK_URLS: env.DGTL_OAUTH_SEO_CALLBACK_URLS }))
++  assert.throws(() => trustedApplications({ DGTL_OAUTH_CMS_CLIENT_ID: 'cms-client' }))
++})
++test('existing SEO-only registration remains valid', () => {
++  assert.deepEqual(trustedApplications({ DGTL_OAUTH_SEO_CLIENT_ID: 'seo', DGTL_OAUTH_SEO_CALLBACK_URLS: env.DGTL_OAUTH_SEO_CALLBACK_URLS }).map(a => a.key), ['seo'])
++})

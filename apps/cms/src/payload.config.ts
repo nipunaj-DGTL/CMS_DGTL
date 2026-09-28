@@ -25,6 +25,8 @@ import { getMediaScanMode } from './services/malware-scan'
 import { getMediaStorageConfiguration, MEDIA_COLLECTION_PREFIX } from './services/media-storage'
 import { getEmailAdapter } from './services/email'
 import { assertSafeDatabaseStartup, shouldPushDatabaseSchema } from './services/database-policy'
+import { CmsSsoSessions } from './collections/CmsSsoSessions'
+import { ssoConfig } from './sso/config'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -34,6 +36,7 @@ const allowedOrigins = (process.env.CMS_ALLOWED_ORIGINS ?? '')
   .map((origin) => origin.trim())
   .filter(Boolean)
 assertSafeDatabaseStartup()
+ssoConfig()
 const mediaStorage = getMediaStorageConfiguration()
 
 // Fail fast during production boot if the mandatory scanning policy is missing.
@@ -43,7 +46,12 @@ export default buildConfig({
   admin: {
     components: {
       beforeDashboard: ['./admin-components/DgtlDashboard'],
+      beforeLogin: ['./admin-components/DgtlSsoLogin'],
       beforeNavLinks: ['./admin-components/TenantContextBanner'],
+      graphics: {
+        Icon: './admin-components/DgtlBranding#DgtlIcon',
+        Logo: './admin-components/DgtlBranding#DgtlLogo',
+      },
     },
     importMap: { baseDir: path.resolve(dirname) },
     meta: { titleSuffix: '— DGTL CMS' },
@@ -52,6 +60,7 @@ export default buildConfig({
   collections: [
     DgtlTenants,
     CmsUsers,
+    CmsSsoSessions,
     Websites,
     Pages,
     Posts,
